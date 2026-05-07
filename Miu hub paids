@@ -24,7 +24,7 @@ local BuffCount = 1  -- 1 = x1, 5 = x5, 10 = x10
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MIU_HUB"
+ScreenGui.Name = "MIU_HUB PREMIUM"
 ScreenGui.Parent = game.CoreGui
 
 ------------------------------------------------
