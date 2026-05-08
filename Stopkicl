@@ -1,172 +1,211 @@
--- Kick a Lucky Block - Auto Freeze Wave by Rarity (GUI)
--- Tự động freeze sóng khi kick ra brainrot có độ hiếm đã chọn
--- Click nút để bật/tắt, nhấn F để toggle nhanh
+--// MIU HUB - WAVE FREEZE BY RARITY
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local player = Players.LocalPlayer
-local rootPart = player.Character and player.Character:WaitForChild("HumanoidRootPart") or player.CharacterAdded:Wait():WaitForChild("HumanoidRootPart")
 
--- ===== CẤU HÌNH =====
-local safeZone = Vector3.new(0, 5, 0) -- Tọa độ base, tự detect nếu cần
-local waveFrozen = false
-local autoDetect = true
-local currentRarity = ""     -- Rarity vừa detect
-local currentBrainrot = nil  -- Brainrot object
-local waveObjects = {}
-local lastRarityTime = 0
+------------------------------------------------
+-- GUI
+------------------------------------------------
 
--- Danh sách rarity theo thứ tự từ thấp đến cao
-local RARITY_ORDER = {
-    ["Common"] = 1,
-    ["Rare"] = 2,
-    ["Epic"] = 3,
-    ["Legend"] = 4,
-    ["Legendary"] = 4,
-    ["Mythic"] = 5,
-    ["Godly"] = 6,
-    ["Secret"] = 7,
-    ["Divine"] = 8,
-    ["Hacked"] = 9,
-    ["OG"] = 10,
-    ["Celestial"] = 11,
-}
+local gui = Instance.new("ScreenGui")
+gui.Name = "MIU_WAVE"
+gui.ResetOnSpawn = false
 
--- Rarity mặc định được chọn: từ "Legend" trở lên
-local MIN_RARITY = "Rare"  -- Sửa dòng này để đổi ngưỡng tối thiểu
-local MIN_RARITY_LEVEL = RARITY_ORDER[MIN_RARITY] or 2
+pcall(function()
+	gui.Parent = game.CoreGui
+end)
 
--- ===== TẠO GUI =====
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RarityWaveGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+if not gui.Parent then
+	gui.Parent = player:WaitForChild("PlayerGui")
+end
 
--- Main frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 260, 0, 250)
-frame.Position = UDim2.new(0.02, 0, 0.3, 0)
-frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-frame.BackgroundTransparency = 0.1
-frame.BorderSizePixel = 0
+frame.Parent = gui
+frame.Size = UDim2.new(0,260,0,320)
+frame.Position = UDim2.new(0.03,0,0.3,0)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,30)
 frame.Active = true
 frame.Draggable = true
 
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 12)
-uiCorner.Parent = frame
-frame.Parent = screenGui
+Instance.new("UICorner",frame).CornerRadius = UDim.new(0,12)
 
--- Title
+------------------------------------------------
+-- TITLE
+------------------------------------------------
+
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 32)
-title.BackgroundTransparency = 1
-title.Text = "🎯 WAVE FREEZE BY RARITY"
-title.TextColor3 = Color3.fromRGB(200, 200, 255)
-title.TextSize = 14
-title.Font = Enum.Font.GothamBold
 title.Parent = frame
+title.Size = UDim2.new(1,0,0,35)
+title.BackgroundTransparency = 1
+title.Text = "🌊 MIU WAVE FREEZE"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextColor3 = Color3.new(1,1,1)
 
--- Divider
-local div = Instance.new("Frame")
-div.Size = UDim2.new(1, -20, 0, 1)
-div.Position = UDim2.new(0, 10, 0, 35)
-div.BackgroundColor3 = Color3.fromRGB(100, 100, 150)
-div.BackgroundTransparency = 0.5
-div.BorderSizePixel = 0
-div.Parent = frame
+------------------------------------------------
+-- STATUS
+------------------------------------------------
 
--- Status label
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -20, 0, 22)
-statusLabel.Position = UDim2.new(0, 10, 0, 40)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "🌊 Wave: NORMAL"
-statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-statusLabel.TextSize = 13
-statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-statusLabel.Parent = frame
+local status = Instance.new("TextLabel")
+status.Parent = frame
+status.Size = UDim2.new(1,-20,0,25)
+status.Position = UDim2.new(0,10,0,40)
+status.BackgroundTransparency = 1
+status.Text = "STATUS : OFF"
+status.Font = Enum.Font.Gotham
+status.TextSize = 14
+status.TextColor3 = Color3.fromRGB(255,100,100)
+status.TextXAlignment = Enum.TextXAlignment.Left
 
--- Current rarity label
+------------------------------------------------
+-- CURRENT RARITY
+------------------------------------------------
+
 local rarityLabel = Instance.new("TextLabel")
-rarityLabel.Size = UDim2.new(1, -20, 0, 22)
-rarityLabel.Position = UDim2.new(0, 10, 0, 62)
-rarityLabel.BackgroundTransparency = 1
-rarityLabel.Text = "🎲 Rarity: ---"
-rarityLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-rarityLabel.TextSize = 13
-rarityLabel.Font = Enum.Font.Gotham
-rarityLabel.TextXAlignment = Enum.TextXAlignment.Left
 rarityLabel.Parent = frame
+rarityLabel.Size = UDim2.new(1,-20,0,25)
+rarityLabel.Position = UDim2.new(0,10,0,65)
+rarityLabel.BackgroundTransparency = 1
+rarityLabel.Text = "RARITY : Rare"
+rarityLabel.Font = Enum.Font.Gotham
+rarityLabel.TextSize = 14
+rarityLabel.TextColor3 = Color3.fromRGB(255,200,100)
+rarityLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Min rarity picker label
-local pickerLabel = Instance.new("TextLabel")
-pickerLabel.Size = UDim2.new(1, -20, 0, 22)
-pickerLabel.Position = UDim2.new(0, 10, 0, 90)
-pickerLabel.BackgroundTransparency = 1
-pickerLabel.Text = "⬇ Freeze khi ≥:"
-pickerLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
-pickerLabel.TextSize = 13
-pickerLabel.Font = Enum.Font.Gotham
-pickerLabel.TextXAlignment = Enum.TextXAlignment.Left
-pickerLabel.Parent = frame
+------------------------------------------------
+-- RARITY LIST
+------------------------------------------------
 
--- Dropdown button (hiển thị rarity hiện tại)
-local rarityList = {"Common","Rare","Epic","Legend","Mythic","Godly","Secret","Divine","Hacked","OG","Celestial"}
-local currentSelection = 2  -- Default: Rare
+local rarityList = {
+	"Common",
+	"Rare",
+	"Epic",
+	"Legend",
+	"Mythic",
+	"Godly",
+	"Secret",
+	"Divine",
+	"Hacked",
+	"OG",
+	"Celestial"
+}
+
+local currentSelection = 2
 
 local function getRarityColor(r)
-    local colors = {
-        Common = Color3.fromRGB(180, 180, 180),
-        Rare = Color3.fromRGB(50, 150, 255),
-        Epic = Color3.fromRGB(150, 50, 255),
-        Legend = Color3.fromRGB(255, 150, 0),
-        Legendary = Color3.fromRGB(255, 150, 0),
-        Mythic = Color3.fromRGB(255, 50, 50),
-        Godly = Color3.fromRGB(255, 215, 0),
-        Secret = Color3.fromRGB(0, 255, 200),
-        Divine = Color3.fromRGB(255, 100, 255),
-        Hacked = Color3.fromRGB(0, 255, 0),
-        OG = Color3.fromRGB(255, 0, 100),
-        Celestial = Color3.fromRGB(100, 200, 255),
-    }
-    return colors[r] or Color3.fromRGB(255, 255, 255)
+	local colors = {
+		Common = Color3.fromRGB(180,180,180),
+		Rare = Color3.fromRGB(50,150,255),
+		Epic = Color3.fromRGB(180,50,255),
+		Legend = Color3.fromRGB(255,170,0),
+		Mythic = Color3.fromRGB(255,60,60),
+		Godly = Color3.fromRGB(255,220,0),
+		Secret = Color3.fromRGB(0,255,200),
+		Divine = Color3.fromRGB(255,100,255),
+		Hacked = Color3.fromRGB(0,255,0),
+		OG = Color3.fromRGB(255,0,100),
+		Celestial = Color3.fromRGB(120,220,255)
+	}
+
+	return colors[r] or Color3.new(1,1,1)
 end
 
-local pickerBtn = Instance.new("TextButton")
-pickerBtn.Size = UDim2.new(1, -20, 0, 28)
-pickerBtn.Position = UDim2.new(0, 10, 0, 112)
-pickerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-pickerBtn.Text = "➤ " .. rarityList[currentSelection]
-pickerBtn.TextColor3 = getRarityColor(rarityList[currentSelection])
-pickerBtn.TextSize = 14
-pickerBtn.Font = Enum.Font.GothamBold
-pickerBtn.BorderSizePixel = 0
-pickerBtn.AutoButtonColor = false
+------------------------------------------------
+-- DROPDOWN BUTTON
+------------------------------------------------
 
-local pickerCorner = Instance.new("UICorner")
-pickerCorner.CornerRadius = UDim.new(0, 6)
-pickerCorner.Parent = pickerBtn
-pickerBtn.Parent = frame
+local picker = Instance.new("TextButton")
+picker.Parent = frame
+picker.Size = UDim2.new(1,-20,0,35)
+picker.Position = UDim2.new(0,10,0,100)
+picker.BackgroundColor3 = Color3.fromRGB(40,40,60)
+picker.Text = "SELECT : "..rarityList[currentSelection]
+picker.TextColor3 = getRarityColor(rarityList[currentSelection])
+picker.Font = Enum.Font.GothamBold
+picker.TextSize = 15
 
--- Dropdown frame (ẩn/hiện khi click)
+Instance.new("UICorner",picker).CornerRadius = UDim.new(0,8)
+
+------------------------------------------------
+-- DROPDOWN
+------------------------------------------------
+
 local dropdown = Instance.new("Frame")
-dropdown.Size = UDim2.new(1, -20, 0, 242)  -- 11 items * 22px
-dropdown.Position = UDim2.new(0, 10, 0, 142)
-dropdown.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-dropdown.BorderSizePixel = 0
-dropdown.Visible = false
-dropdown.ZIndex = 10
-
-local dropCorner = Instance.new("UICorner")
-dropCorner.CornerRadius = UDim.new(0, 6)
-dropCorner.Parent = dropdown
 dropdown.Parent = frame
+dropdown.Size = UDim2.new(1,-20,0,160)
+dropdown.Position = UDim2.new(0,10,0,145)
+dropdown.BackgroundColor3 = Color3.fromRGB(30,30,40)
+dropdown.Visible = false
 
--- Tạo các item trong dropdown
-local function createRarityItem(r, idx
+Instance.new("UICorner",dropdown).CornerRadius = UDim.new(0,8)
+
+------------------------------------------------
+-- CREATE ITEMS
+------------------------------------------------
+
+for i,v in ipairs(rarityList) do
+	local btn = Instance.new("TextButton")
+	btn.Parent = dropdown
+	btn.Size = UDim2.new(1,-10,0,22)
+	btn.Position = UDim2.new(0,5,0,(i-1)*23)
+	btn.BackgroundColor3 = Color3.fromRGB(45,45,60)
+	btn.Text = v
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 13
+	btn.TextColor3 = getRarityColor(v)
+
+	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,6)
+
+	btn.MouseButton1Click:Connect(function()
+		currentSelection = i
+
+		picker.Text = "SELECT : "..v
+		picker.TextColor3 = getRarityColor(v)
+
+		rarityLabel.Text = "RARITY : "..v
+
+		dropdown.Visible = false
+	end)
+end
+
+------------------------------------------------
+-- OPEN / CLOSE
+------------------------------------------------
+
+picker.MouseButton1Click:Connect(function()
+	dropdown.Visible = not dropdown.Visible
+end)
+
+------------------------------------------------
+-- TOGGLE BUTTON
+------------------------------------------------
+
+local enabled = false
+
+local toggle = Instance.new("TextButton")
+toggle.Parent = frame
+toggle.Size = UDim2.new(1,-20,0,40)
+toggle.Position = UDim2.new(0,10,1,-50)
+toggle.BackgroundColor3 = Color3.fromRGB(255,100,140)
+toggle.Text = "FREEZE : OFF"
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 18
+toggle.TextColor3 = Color3.new(1,1,1)
+
+Instance.new("UICorner",toggle).CornerRadius = UDim.new(0,10)
+
+toggle.MouseButton1Click:Connect(function()
+	enabled = not enabled
+
+	if enabled then
+		toggle.Text = "FREEZE : ON"
+		status.Text = "STATUS : ACTIVE"
+		status.TextColor3 = Color3.fromRGB(0,255,120)
+	else
+		toggle.Text = "FREEZE : OFF"
+		status.Text = "STATUS : OFF"
+		status.TextColor3 = Color3.fromRGB(255,100,100)
+	end
+end)
+
+print("MIU WAVE GUI LOADED")
