@@ -1,5 +1,5 @@
 --[[
-  Script: Force Brainrot Stealer - Bypass Steal
+  Script: Base Brainrot Stealer - Steal brainrot từ base người khác
   Game: Kick a Lucky Block / Be a Lucky Block
   Authorization: Pentest đã được cấp phép
 --]]
@@ -7,144 +7,199 @@
 -- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- Tìm RemoteEvent rev_S_Steal (và các remote liên quan)
-local RemoteEvent = nil
-local RemoteEventAlt = nil
-
-local function findAllRelevantRemotes()
-    local results = {}
-    
-    local function deepSearch(instance, depth)
-        if depth > 6 then return end
-        for _, child in ipairs(instance:GetChildren()) do
-            if (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")) then
-                local name = child.Name:lower()
-                if name:find("steal") or name:find("brainrot") or name:find("lucky") or name:find("rev") then
-                    table.insert(results, child)
-                end
-            end
-            deepSearch(child, depth + 1)
-        end
-    end
-    
-    deepSearch(ReplicatedStorage, 0)
-    return results
-end
-
--- Tìm theo path chính xác trước
-local function findExactPath()
+-- Tìm RemoteEvent rev_S_Steal
+local function findRemoteEvent()
+    -- Path chính xác
     local path = { "Shared", "Packages", "Network", "rev_S_Steal" }
     local obj = ReplicatedStorage
     for _, name in ipairs(path) do
         obj = obj:FindFirstChild(name)
-        if not obj then return nil end
+        if not obj then break end
     end
-    return obj
+    if obj then return obj end
+    
+    -- Deep search
+    local function deepSearch(instance, depth)
+        if depth > 6 then return nil end
+        for _, child in ipairs(instance:GetChildren()) do
+            if child.Name == "rev_S_Steal" and (child:IsA("RemoteEvent") or child:IsA("RemoteFunction")) then
+                return child
+            end
+            local found = deepSearch(child, depth + 1)
+            if found then return found end
+        end
+        return nil
+    end
+    
+    return deepSearch(ReplicatedStorage, 0)
 end
 
-RemoteEvent = findExactPath()
+local RemoteEvent = findRemoteEvent()
 
 if not RemoteEvent then
-    -- Tìm tất cả remote liên quan
-    local allRemotes = findAllRelevantRemotes()
-    
-    if #allRemotes > 0 then
-        RemoteEvent = allRemotes[1]
-        print("[*] Found remote:", RemoteEvent:GetFullName())
-    else
-        warn("[!] rev_S_Steal not found! Liệt kê tất cả RemoteEvent:")
-        local count = 0
-        local function listAll(inst, depth)
-            if depth > 4 then return end
-            for _, c in ipairs(inst:GetChildren()) do
-                if c:IsA("RemoteEvent") or c:IsA("RemoteFunction") then
-                    count = count + 1
-                    warn("  [" .. count .. "] " .. c:GetFullName())
-                end
-                listAll(c, depth + 1)
+    -- Debug: liệt kê tất cả RemoteEvent
+    local function listAll(inst, depth)
+        if depth > 4 then return end
+        for _, c in ipairs(inst:GetChildren()) do
+            if c:IsA("RemoteEvent") or c:IsA("RemoteFunction") then
+                warn("  " .. c:GetFullName())
             end
+            listAll(c, depth + 1)
         end
-        listAll(ReplicatedStorage, 0)
-        warn("[!] Không tìm thấy remote steal nào!")
-        return
     end
+    warn("[!] rev_S_Steal NOT FOUND! Các RemoteEvent có sẵn:")
+    listAll(ReplicatedStorage, 0)
+    return
 end
 
--- Lấy tất cả thông tin về brainrot hiện tại trong game
-local Brainrots = {}
-local function scanBrainrots()
-    Brainrots = {}
+-- === HÀM TÌM BASE CỦA NGƯỜI CHƠI ===
+-- Mỗi người chơi có base riêng (thường là folder/model trong Workspace)
+local function findPlayerBase(player)
+    -- Các cách game thường đặt base
+    local possibleNames = {
+        player.Name .. "'s Base",
+        player.Name .. "sBase",
+        player.Name .. "_Base",
+        player.Name .. "Base",
+        "Base_" .. player.Name,
+        "Base" .. player.Name,
+        player.Name,
+        player.UserId,
+        tostring(player.UserId),
+        "Base_" .. player.UserId,
+    }
     
-    -- Quét workspace tìm các vật phẩm brainrot
-    local workspace = game:GetService("Workspace")
-    for _, obj in ipairs(workspace:GetDescendants()) do
+    -- Tìm trong Workspace
+    for _, name in ipairs(possibleNames) do
+        local obj = Workspace:FindFirstChild(name)
+        if obj then return obj end
+    end
+    
+    -- Tìm trong các folder con của Workspace
+    for _, child in ipairs(Workspace:GetChildren()) do
+        -- Nếu là folder/model và chứa tên player
+        if child.Name:lower():find(player.Name:lower()) then
+            return child
+        end
+        -- Nếu folder chứa các phần liên quan đến base
+        if child.Name:lower():find("base") or child.Name:lower():find("tycoon") or child.Name:lower():find("plot") then
+            -- Kiểm tra xem folder này có thuộc về player không
+            if child:FindFirstChild(player.Name) or child:FindFirstChild(tostring(player.UserId)) then
+                return child
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- === HÀM TÌM BRAINROT TRONG BASE CỦA NGƯỜI CHƠI ===
+local function findBrainrotsInBase(player)
+    local base = findPlayerBase(player)
+    if not base then return {} end
+    
+    local brainrots = {}
+    
+    -- Quét toàn bộ base tìm brainrot
+    for _, obj in ipairs(base:GetDescendants()) do
         local name = obj.Name:lower()
-        if name:find("brainrot") or name:find("lucky.block") or obj:IsA("Model") and obj.PrimaryPart then
-            -- Kiểm tra xem brainrot này có đang được carry bởi người chơi nào không
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
-                    -- Kiểm tra khoảng cách
-                    if player.Character:FindFirstChild("HumanoidRootPart") and obj:IsA("BasePart") then
-                        local dist = (player.Character.HumanoidRootPart.Position - obj.Position).Magnitude
-                        if dist < 10 then
-                            table.insert(Brainrots, {
-                                Object = obj,
-                                Carrier = player,
-                                Distance = dist
-                            })
-                        end
-                    end
+        -- Kiểm tra tên brainrot
+        if name:find("brainrot") or name:find("brain") or name:find("lucky.block") or name:find("luckyblock") then
+            if obj:IsA("BasePart") or obj:IsA("Model") or obj:IsA("Tool") then
+                table.insert(brainrots, obj)
+            end
+        end
+        
+        -- Kiểm tra các tên phổ biến khác
+        if name:find("rot") or name:find("steal") or name:find("drop") then
+            if obj:IsA("BasePart") and obj.Transparency < 0.5 then
+                table.insert(brainrots, obj)
+            end
+        end
+    end
+    
+    return brainrots
+end
+
+-- === LẤY TẤT CẢ NGƯỜI CHƠI CÓ BASE ===
+local function getPlayersWithBases()
+    local players = {}
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local base = findPlayerBase(player)
+            if base then
+                local brainrots = findBrainrotsInBase(player)
+                if #brainrots > 0 then
+                    table.insert(players, {
+                        Player = player,
+                        Base = base,
+                        Brainrots = brainrots,
+                        Count = #brainrots
+                    })
                 end
             end
         end
     end
     
-    return #Brainrots
+    -- Sắp xếp theo số lượng brainrot giảm dần
+    table.sort(players, function(a, b)
+        return a.Count > b.Count
+    end)
+    
+    return players
 end
 
--- === HÀM STEAL CHÍNH - GỬI TRỰC TIẾP ===
-local function forceStealBrainrot(targetPlayer)
-    if not targetPlayer then return false, "No target" end
-    if not RemoteEvent then return false, "No remote event" end
+-- === HÀM STEAL BRAINROT TỪ BASE ===
+local function stealBrainrotFromBase(targetPlayer, brainrotObject)
+    if not targetPlayer or not RemoteEvent then
+        return false, "Invalid params"
+    end
     
-    -- Các format args có thể có, thử lần lượt
+    -- Các format args khác nhau để steal brainrot object
     local argFormats = {
-        -- Format 1: Object player
-        function() return { targetPlayer } end,
-        -- Format 2: UserId
-        function() return { targetPlayer.UserId } end,
-        -- Format 3: Tên
-        function() return { targetPlayer.Name } end,
-        -- Format 4: Tên + UserId
-        function() return { targetPlayer.Name, targetPlayer.UserId } end,
-        -- Format 5: Character + UserId
+        -- Format 1: {brainrotObject, targetPlayer}
+        function() return { brainrotObject, targetPlayer } end,
+        -- Format 2: {brainrotObject}
+        function() return { brainrotObject } end,
+        -- Format 3: {brainrotObject.Position, targetPlayer}
         function() 
-            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                return { targetPlayer.Character, targetPlayer.UserId }
+            if brainrotObject:IsA("BasePart") then
+                return { brainrotObject.Position, targetPlayer }
             end
             return nil
         end,
-        -- Format 6: Vị trí brainrot (nếu có object)
+        -- Format 4: {brainrotObject.Position, targetPlayer.UserId}
         function()
-            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                return { targetPlayer.Character.HumanoidRootPart.Position, targetPlayer.UserId }
+            if brainrotObject:IsA("BasePart") then
+                return { brainrotObject.Position, targetPlayer.UserId }
             end
             return nil
         end,
-        -- Format 7: UserId + "Brainrot"
-        function() return { targetPlayer.UserId, "Brainrot" } end,
-        -- Format 8: Object player + true (force)
-        function() return { targetPlayer, true } end,
-        -- Format 9: Object player + "Steal"
-        function() return { targetPlayer, "Steal" } end,
-        -- Format 10: targetPlayer.Character
+        -- Format 5: {targetPlayer, brainrotObject}
+        function() return { targetPlayer, brainrotObject } end,
+        -- Format 6: {targetPlayer.UserId, brainrotObject.Position}
         function()
-            if targetPlayer.Character then return { targetPlayer.Character } end
+            if brainrotObject:IsA("BasePart") then
+                return { targetPlayer.UserId, brainrotObject.Position }
+            end
+            return nil
+        end,
+        -- Format 7: {brainrotObject.Name, targetPlayer.UserId}
+        function() return { brainrotObject.Name, targetPlayer.UserId } end,
+        -- Format 8: {targetPlayer.Name, brainrotObject.Name}
+        function() return { targetPlayer.Name, brainrotObject.Name } end,
+        -- Format 9: {brainrotObject, "Steal"}
+        function() return { brainrotObject, "Steal" } end,
+        -- Format 10: {targetPlayer, brainrotObject.Position, brainrotObject.Name}
+        function()
+            if brainrotObject:IsA("BasePart") then
+                return { targetPlayer, brainrotObject.Position, brainrotObject.Name }
+            end
             return nil
         end,
     }
@@ -154,15 +209,13 @@ local function forceStealBrainrot(targetPlayer)
         if args then
             local success, err = pcall(function()
                 RemoteEvent:FireServer(unpack(args))
+                -- Gửi thêm 2 lần nữa để chắc chắn
+                wait(0.05)
+                RemoteEvent:FireServer(unpack(args))
+                wait(0.05)
+                RemoteEvent:FireServer(unpack(args))
             end)
             if success then
-                -- Gửi nhiều lần để đảm bảo server nhận
-                for _ = 1, 3 do
-                    pcall(function()
-                        RemoteEvent:FireServer(unpack(args))
-                    end)
-                    wait(0.05)
-                end
                 return true, "Format " .. i
             end
         end
@@ -171,72 +224,70 @@ local function forceStealBrainrot(targetPlayer)
     return false, "All formats failed"
 end
 
--- Tìm người chơi gần nhất (đang carry brainrot hoặc bất kỳ)
-local function findNearestTarget()
-    local nearest = nil
-    local minDist = math.huge
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            if dist < minDist then
-                minDist = dist
-                nearest = player
-            end
-        end
+-- === TÌM NGƯỜI CHƠI CÓ BASE VÀ BRAINROT GẦN NHẤT ===
+local function findNearestBaseWithBrainrots()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
     end
     
-    return nearest
-end
-
--- Lấy brainrot object từ click chuột
-local function getBrainrotFromClick(target)
-    if not target then return nil end
+    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+    local bestTarget = nil
+    local minDist = math.huge
     
-    -- Kiểm tra nếu click vào brainrot (object trên workspace)
-    local obj = target
-    local carrier = nil
-    
-    -- Tìm player đang ở gần object này
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            if obj:IsA("BasePart") then
-                local dist = (player.Character.HumanoidRootPart.Position - obj.Position).Magnitude
-                if dist < 15 then
-                    carrier = player
+    for _, data in ipairs(getPlayersWithBases()) do
+        local base = data.Base
+        local basePos = nil
+        
+        if base:IsA("BasePart") or (base:IsA("Model") and base.PrimaryPart) then
+            basePos = (base:IsA("BasePart") and base.Position) or base.PrimaryPart.Position
+        elseif #base:GetChildren() > 0 then
+            -- Lấy vị trí từ phần tử đầu tiên
+            for _, child in ipairs(base:GetChildren()) do
+                if child:IsA("BasePart") then
+                    basePos = child.Position
                     break
                 end
             end
         end
-    end
-    
-    -- Nếu click trực tiếp vào người chơi
-    if not carrier then
-        if target.Parent then
-            local model = target
-            if model:IsA("Model") and model:FindFirstChild("Humanoid") then
-                carrier = Players:GetPlayerFromCharacter(model)
-            elseif target.Parent:IsA("Model") and target.Parent:FindFirstChild("Humanoid") then
-                carrier = Players:GetPlayerFromCharacter(target.Parent)
-            elseif target.Parent.Parent and target.Parent.Parent:IsA("Model") and target.Parent.Parent:FindFirstChild("Humanoid") then
-                carrier = Players:GetPlayerFromCharacter(target.Parent.Parent)
+        
+        if basePos then
+            local dist = (myPos - basePos).Magnitude
+            if dist < minDist then
+                minDist = dist
+                bestTarget = data
             end
         end
     end
     
-    return obj, carrier
+    return bestTarget
+end
+
+-- === STEAL ALL BRAINROTS TỪ BASE CỦA 1 NGƯỜI CHƠI ===
+local function stealAllFromPlayer(data)
+    if not data then return 0 end
+    
+    local successCount = 0
+    for _, brainrot in ipairs(data.Brainrots) do
+        local success, _ = stealBrainrotFromBase(data.Player, brainrot)
+        if success then
+            successCount = successCount + 1
+        end
+        wait(0.1)
+    end
+    
+    return successCount, #data.Brainrots
 end
 
 -- === UI ===
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ForceBrainrotStealer"
+screenGui.Name = "BaseBrainrotStealer"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Background
+-- Main Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 260, 0, 170)
-frame.Position = UDim2.new(0.5, -130, 0.8, -85)
+frame.Size = UDim2.new(0, 320, 0, 250)
+frame.Position = UDim2.new(0.5, -160, 0.75, -125)
 frame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
 frame.BackgroundTransparency = 0.05
 frame.BorderSizePixel = 0
@@ -245,9 +296,8 @@ frame.Draggable = true
 frame.Parent = screenGui
 
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(255, 50, 50)
+stroke.Color = Color3.fromRGB(255, 180, 0)
 stroke.Thickness = 2
-stroke.Transparency = 0.3
 stroke.Parent = frame
 
 local corner = Instance.new("UICorner")
@@ -257,41 +307,65 @@ corner.Parent = frame
 -- Title
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 28)
-title.Position = UDim2.new(0, 0, 0, 4)
+title.Position = UDim2.new(0, 0, 0, 5)
 title.BackgroundTransparency = 1
-title.Text = "🧠 FORCE BRAINROT STEALER"
-title.TextColor3 = Color3.fromRGB(255, 80, 80)
+title.Text = "🏠 BASE BRAINROT STEALER"
+title.TextColor3 = Color3.fromRGB(255, 180, 0)
 title.TextSize = 16
 title.Font = Enum.Font.GothamBold
 title.Parent = frame
 
--- Description
-local desc = Instance.new("TextLabel")
-desc.Size = UDim2.new(1, -20, 0, 18)
-desc.Position = UDim2.new(0, 10, 0, 32)
-desc.BackgroundTransparency = 1
-desc.Text = "Click brainrot → fails | Press button → force steal"
-desc.TextColor3 = Color3.fromRGB(180, 180, 180)
-desc.TextSize = 10
-desc.Font = Enum.Font.Gotham
-desc.Parent = frame
+-- Info label
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -20, 0, 18)
+infoLabel.Position = UDim2.new(0, 10, 0, 33)
+infoLabel.BackgroundTransparency = 1
+infoLabel.Text = "Steal brainrots từ base/tycoon người khác"
+infoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+infoLabel.TextSize = 10
+infoLabel.Font = Enum.Font.Gotham
+infoLabel.Parent = frame
 
--- Target info
+-- Target label
 local targetLabel = Instance.new("TextLabel")
 targetLabel.Size = UDim2.new(1, -20, 0, 18)
-targetLabel.Position = UDim2.new(0, 10, 0, 50)
+targetLabel.Position = UDim2.new(0, 10, 0, 53)
 targetLabel.BackgroundTransparency = 1
-targetLabel.Text = "Target: None"
+targetLabel.Text = "Target Base: None"
 targetLabel.TextColor3 = Color3.fromRGB(200, 200, 100)
 targetLabel.TextSize = 12
 targetLabel.Font = Enum.Font.GothamBold
 targetLabel.TextXAlignment = Enum.TextXAlignment.Left
 targetLabel.Parent = frame
 
+-- Brainrot count
+local countLabel = Instance.new("TextLabel")
+countLabel.Size = UDim2.new(1, -20, 0, 18)
+countLabel.Position = UDim2.new(0, 10, 0, 71)
+countLabel.BackgroundTransparency = 1
+countLabel.Text = "Brainrots: 0 detected"
+countLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+countLabel.TextSize = 11
+countLabel.Font = Enum.Font.Gotham
+countLabel.TextXAlignment = Enum.TextXAlignment.Left
+countLabel.Parent = frame
+
+-- Distance label
+local distLabel = Instance.new("TextLabel")
+distLabel.Size = UDim2.new(1, -20, 0, 18)
+distLabel.Position = UDim2.new(0, 10, 0, 89)
+distLabel.BackgroundTransparency = 1
+distLabel.Text = "Distance: --"
+distLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+distLabel.TextSize = 11
+distLabel.Font = Enum.Font.Gotham
+distLabel.TextXAlignment = Enum.TextXAlignment.Left
+distLabel.Parent = frame
+
 -- Status
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Size = UDim2.new(1, -20, 0, 18)
-statusLabel.Position = UDim2.new(0, 10, 0, 68)
+statusLabel.Position = UDim2.new(0, 10, 0, 107)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Status: Ready"
 statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
@@ -300,14 +374,14 @@ statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = frame
 
--- === NÚT STEAL CHÍNH ===
+-- === NÚT STEAL BRAINROT TỪ BASE GẦN NHẤT ===
 local stealBtn = Instance.new("TextButton")
-stealBtn.Size = UDim2.new(0, 220, 0, 42)
-stealBtn.Position = UDim2.new(0.5, -110, 0, 95)
-stealBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-stealBtn.Text = "🔥 FORCE STEAL NEAREST PLAYER"
+stealBtn.Size = UDim2.new(0, 280, 0, 45)
+stealBtn.Position = UDim2.new(0.5, -140, 0, 130)
+stealBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
+stealBtn.Text = "🏠 STEAL ALL BRAINROTS FROM NEAREST BASE"
 stealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-stealBtn.TextSize = 13
+stealBtn.TextSize = 12
 stealBtn.Font = Enum.Font.GothamBold
 stealBtn.Parent = frame
 
@@ -315,105 +389,172 @@ local btnCorner = Instance.new("UICorner")
 btnCorner.CornerRadius = UDim.new(0, 6)
 btnCorner.Parent = stealBtn
 
--- Close button
+-- === NÚT SCAN ===
+local scanBtn = Instance.new("TextButton")
+scanBtn.Size = UDim2.new(0, 130, 0, 30)
+scanBtn.Position = UDim2.new(0, 10, 0, 185)
+scanBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+scanBtn.Text = "🔄 Scan Bases"
+scanBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+scanBtn.TextSize = 11
+scanBtn.Font = Enum.Font.Gotham
+scanBtn.Parent = frame
+
+local scanCorner = Instance.new("UICorner")
+scanCorner.CornerRadius = UDim.new(0, 5)
+scanCorner.Parent = scanBtn
+
+-- === NÚT CLOSE ===
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 22, 0, 22)
-closeBtn.Position = UDim2.new(1, -27, 0, 4)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-closeBtn.TextSize = 16
-closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Size = UDim2.new(0, 130, 0, 30)
+closeBtn.Position = UDim2.new(1, -140, 0, 185)
+closeBtn.BackgroundColor3 = Color3.fromRGB(80, 40, 40)
+closeBtn.Text = "✕ Close"
+closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeBtn.TextSize = 11
+closeBtn.Font = Enum.Font.Gotham
 closeBtn.Parent = frame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 5)
+closeCorner.Parent = closeBtn
 
 closeBtn.MouseButton1Click:Connect(function()
     screenGui:Destroy()
 end)
 
--- Variable để lưu target từ click
-local clickedTarget = nil
-local clickedPlayer = nil
+-- Biến lưu target hiện tại
+local currentTargetData = nil
 
--- Bắt sự kiện click chuột vào brainrot/người chơi
-Mouse.Button1Down:Connect(function()
-    local target = Mouse.Target
-    if not target then return end
-    
-    local obj, player = getBrainrotFromClick(target)
-    
-    if player and player ~= LocalPlayer then
-        clickedTarget = obj
-        clickedPlayer = player
-        targetLabel.Text = "Target: " .. player.Name .. " (clicked)"
-        statusLabel.Text = "Status: Clicked " .. player.Name .. " - Use button to force steal!"
-        stealBtn.Text = "🔥 FORCE STEAL " .. player.Name
+-- Hàm cập nhật UI
+local function updateUI(data)
+    if data then
+        targetLabel.Text = "Target Base: " .. data.Player.Name .. "'s Base"
+        countLabel.Text = "Brainrots: " .. data.Count .. " detected"
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and data.Base then
+            local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+            local basePos = nil
+            
+            if data.Base:IsA("BasePart") then
+                basePos = data.Base.Position
+            elseif data.Base:IsA("Model") and data.Base.PrimaryPart then
+                basePos = data.Base.PrimaryPart.Position
+            end
+            
+            if basePos then
+                local dist = (myPos - basePos).Magnitude
+                distLabel.Text = "Distance: " .. math.floor(dist) .. "m"
+            end
+        end
+        
+        stealBtn.Text = "🏠 STEAL " .. data.Count .. " BRAINROTS FROM " .. data.Player.Name
+    else
+        targetLabel.Text = "Target Base: None"
+        countLabel.Text = "Brainrots: 0 detected"
+        distLabel.Text = "Distance: --"
+        stealBtn.Text = "🏠 STEAL ALL BRAINROTS FROM NEAREST BASE"
     end
+end
+
+-- Nút scan: quét tất cả base và brainrot
+scanBtn.MouseButton1Click:Connect(function()
+    statusLabel.Text = "Status: 🔄 Scanning bases..."
+    scanBtn.Text = "⏳ Scanning..."
+    
+    local playersData = getPlayersWithBases()
+    
+    if #playersData == 0 then
+        statusLabel.Text = "Status: ❌ No bases with brainrots found!"
+        scanBtn.Text = "🔄 Scan Bases"
+        currentTargetData = nil
+        updateUI(nil)
+        return
+    end
+    
+    -- Hiển thị danh sách
+    statusLabel.Text = "Status: ✅ Found " .. #playersData .. " bases with brainrots"
+    for i, data in ipairs(playersData) do
+        print("[Base] " .. data.Player.Name .. " - " .. data.Count .. " brainrots")
+    end
+    
+    -- Chọn base gần nhất
+    currentTargetData = findNearestBaseWithBrainrots()
+    if currentTargetData then
+        updateUI(currentTargetData)
+        statusLabel.Text = "Status: ✅ Selected " .. currentTargetData.Player.Name .. "'s base"
+    end
+    
+    scanBtn.Text = "🔄 Scan Bases"
 end)
 
--- Khi bấm nút STEAL
+-- Nút steal chính
 stealBtn.MouseButton1Click:Connect(function()
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         statusLabel.Text = "Status: ❌ No character!"
         return
     end
     
-    -- Ưu tiên target đã click, nếu không thì tìm nearest
-    local target = clickedPlayer or findNearestTarget()
+    -- Nếu chưa scan hoặc không có target, tự động tìm
+    if not currentTargetData then
+        currentTargetData = findNearestBaseWithBrainrots()
+    end
     
-    if not target then
-        statusLabel.Text = "Status: ❌ No players found!"
-        stealBtn.BackgroundColor3 = Color3.fromRGB(100, 40, 40)
+    if not currentTargetData then
+        statusLabel.Text = "Status: ❌ No bases found! Scan first."
+        stealBtn.BackgroundColor3 = Color3.fromRGB(120, 60, 0)
         wait(0.5)
-        stealBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        stealBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
         return
     end
     
-    -- Steal
-    statusLabel.Text = "Status: 🔄 Force stealing " .. target.Name .. "..."
-    stealBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
-    stealBtn.Text = "⏳ FORCE STEALING..."
+    -- Bắt đầu steal
+    statusLabel.Text = "Status: 🔄 Stealing from " .. currentTargetData.Player.Name .. "'s base..."
+    stealBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
+    stealBtn.Text = "⏳ STEALING " .. currentTargetData.Count .. " BRAINROTS..."
     
-    local success, formatUsed = forceStealBrainrot(target)
+    local successCount, total = stealAllFromPlayer(currentTargetData)
     
-    if success then
-        statusLabel.Text = "✅ SUCCESS! Stole from " .. target.Name .. " (format: " .. tostring(formatUsed) .. ")"
+    if successCount > 0 then
+        statusLabel.Text = "Status: ✅ Stole " .. successCount .. "/" .. total .. " brainrots!"
         stealBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 50)
-        stealBtn.Text = "✅ STOLE " .. target.Name
-        wait(1.5)
-        stealBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-        stealBtn.Text = "🔥 FORCE STEAL NEAREST PLAYER"
-        targetLabel.Text = "Target: None"
-        clickedPlayer = nil
+        stealBtn.Text = "✅ STOLE " .. successCount .. " BRAINROTS!"
+        wait(2)
     else
-        statusLabel.Text = "Status: ❌ Failed - " .. tostring(formatUsed)
-        stealBtn.BackgroundColor3 = Color3.fromRGB(100, 30, 30)
-        stealBtn.Text = "❌ FAILED - TRY AGAIN"
+        statusLabel.Text = "Status: ❌ Failed to steal brainrots"
+        stealBtn.BackgroundColor3 = Color3.fromRGB(120, 60, 0)
+        stealBtn.Text = "❌ STEAL FAILED - RETRY?"
         wait(1)
-        if clickedPlayer then
-            stealBtn.Text = "🔥 FORCE STEAL " .. clickedPlayer.Name
-        else
-            stealBtn.Text = "🔥 FORCE STEAL NEAREST PLAYER"
-        end
-        stealBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
     end
+    
+    -- Reset UI
+    stealBtn.BackgroundColor3 = Color3.fromRGB(220, 120, 0)
+    if currentTargetData then
+        stealBtn.Text = "🏠 STEAL " .. currentTargetData.Count .. " BRAINROTS FROM " .. currentTargetData.Player.Name
+    else
+        stealBtn.Text = "🏠 STEAL ALL BRAINROTS FROM NEAREST BASE"
+    end
+    
+    -- Scan lại để cập nhật
+    coroutine.wrap(function()
+        wait(1)
+        currentTargetData = findNearestBaseWithBrainrots()
+        if currentTargetData then
+            updateUI(currentTargetData)
+        end
+    end)()
 end)
 
--- Auto-refresh: cập nhật thông tin brainrot gần đó (không bắt buộc)
+-- Tự động scan khi load
 coroutine.wrap(function()
-    while screenGui and screenGui.Parent do
-        -- Cập nhật khoảng cách tới target nếu có
-        if clickedPlayer and clickedPlayer.Character and clickedPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - clickedPlayer.Character.HumanoidRootPart.Position).Magnitude
-            targetLabel.Text = "Target: " .. clickedPlayer.Name .. " [" .. math.floor(dist) .. "m]"
-        end
-        wait(1)
-    end
-end)
+    wait(1)
+    scanBtn.MouseButton1Click:Fire()
+end)()
 
-print("=== FORCE BRAINROT STEALER LOADED ===")
+print("=== BASE BRAINROT STEALER LOADED ===")
 print("[*] Remote: " .. (RemoteEvent and RemoteEvent:GetFullName() or "NONE"))
-print("[*] Cách dùng:")
-print("[*]   1. Click vào brainrot/người chơi -> lưu target")
-print("[*]   2. Bấm nút FORCE STEAL -> gửi lệnh steal trực tiếp")
-print("[*]   3. Server nhận lệnh -> steal thành công!")
-print("======================================")
+print("[*] Chức năng:")
+print("[*]   1. Click 'Scan Bases' -> quét tất cả base có brainrot")
+print("[*]   2. Click 'STEAL' -> steal tất cả brainrot từ base gần nhất")
+print("[*] Script sẽ tự động tìm base và brainrot trong Workspace")
+print("=====================================")
