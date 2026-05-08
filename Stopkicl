@@ -1,55 +1,223 @@
---// MIU HUB TEST GUI
+-- Kick a Lucky Block - Wave Freeze Toggle (GUI)
+-- Nhấn nút "STOP WAVE" để đóng băng sóng, nhấn lại để sóng chạy bình thường
 
 local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "MIU_TEST"
-Gui.ResetOnSpawn = false
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
 
-pcall(function()
-	Gui.Parent = game.CoreGui
-end)
+-- ===== CẤU HÌNH =====
+local safeZone = Vector3.new(0, 5, 0)  -- Safe zone (base)
+local godSpeed = 200                    -- Speed khi freeze
+local normalSpeed = 16                  -- Speed bình thường
 
-if not Gui.Parent then
-	Gui.Parent = Player:WaitForChild("PlayerGui")
+-- ===== TRẠNG THÁI =====
+local waveFrozen = false
+local waveObjects = {}  -- Lưu danh sách wave parts khi freeze
+
+-- ===== TẠO GUI =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "WaveToggleGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player.PlayerGui
+
+-- Frame chính
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 60)
+frame.Position = UDim2.new(0.5, -100, 0.9, -30)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true  -- Kéo di chuyển
+frame.Parent = screenGui
+
+-- Gradient bo góc
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 10)
+uiCorner.Parent = frame
+
+-- Label trạng thái
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 25)
+statusLabel.Position = UDim2.new(0, 0, 0, 2)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "🌊 Wave: RUNNING"
+statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+statusLabel.TextSize = 16
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextStrokeTransparency = 0.3
+statusLabel.Parent = frame
+
+-- Nút toggle
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(1, -20, 0, 28)
+toggleBtn.Position = UDim2.new(0, 10, 0, 28)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleBtn.Text = "⏸ FREEZE WAVE"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.AutoButtonColor = false
+toggleBtn.BorderSizePixel = 0
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = toggleBtn
+
+toggleBtn.Parent = frame
+
+-- ===== CHỨC NĂNG CHÍNH =====
+
+-- Phát hiện và lưu wave objects
+local function findWaveObjects()
+    waveObjects = {}
+    for _, obj in pairs(Workspace:GetChildren()) do
+        local nameLower = obj.Name:lower()
+        -- Adjust detection dựa trên game (thêm/remove patterns nếu cần)
+        if nameLower:find("wave") or nameLower:find("tsunami") or nameLower:find("tidal") or nameLower:find("water") then
+            if obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("Model") then
+                table.insert(waveObjects, obj)
+            end
+        end
+        -- Cũng kiểm tra children của Workspace thường chứa các part lớn
+        if obj:IsA("BasePart") and obj.Size.X > 30 and obj.Size.Z > 30 then
+            table.insert(waveObjects, obj)
+        end
+    end
+    return #waveObjects > 0
 end
 
-------------------------------------------------
+-- Freeze wave: ẩn hết wave objects
+local function freezeWave()
+    if waveFrozen then return end
+    
+    findWaveObjects()
+    if #waveObjects == 0 then
+        -- Nếu ko detect được, thử ẩn theo pattern
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("BasePart") then
+                obj.Transparency = 1
+                obj.CanCollide = false
+                obj.Anchored = true
+                table.insert(waveObjects, obj)
+            end
+        end
+    end
+    
+    for _, obj in pairs(waveObjects) do
+        if obj and obj.Parent then
+            obj.Transparency = 1
+            obj.CanCollide = false
+            obj.Anchored = true
+            if obj:IsA("Model") then
+                for _, part in pairs(obj:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 1
+                        part.CanCollide = false
+                        part.Anchored = true
+                    end
+                end
+            end
+        end
+    end
+    
+    waveFrozen = true
+    humanoid.WalkSpeed = normalSpeed
+    statusLabel.Text = "❄️ Wave: FROZEN"
+    statusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+    toggleBtn.Text = "▶️ RESUME WAVE"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 120)
+    print("[Wave] Freezed " .. #waveObjects .. " wave objects")
+end
 
-local Main = Instance.new("Frame")
-Main.Parent = Gui
-Main.Size = UDim2.new(0,220,0,110)
-Main.Position = UDim2.new(0.05,0,0.4,0)
-Main.BackgroundColor3 = Color3.fromRGB(255,105,180)
-Main.Active = true
-Main.Draggable = true
+-- Resume wave: hiện lại wave objects
+local function resumeWave()
+    if not waveFrozen then return end
+    
+    for _, obj in pairs(waveObjects) do
+        if obj and obj.Parent then
+            obj.Transparency = 0
+            obj.CanCollide = true
+            obj.Anchored = false
+            if obj:IsA("Model") then
+                for _, part in pairs(obj:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Transparency = 0
+                        part.CanCollide = true
+                        part.Anchored = false
+                    end
+                end
+            end
+        end
+    end
+    
+    waveObjects = {}
+    waveFrozen = false
+    humanoid.WalkSpeed = godSpeed
+    statusLabel.Text = "🌊 Wave: RUNNING"
+    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    toggleBtn.Text = "⏸ FREEZE WAVE"
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    print("[Wave] Resumed - wave is active again")
+end
 
-Instance.new("UICorner",Main).CornerRadius = UDim.new(0,18)
+-- Toggle chính
+local function toggleWave()
+    if waveFrozen then
+        resumeWave()
+    else
+        freezeWave()
+    end
+end
 
-local Title = Instance.new("TextLabel")
-Title.Parent = Main
-Title.Size = UDim2.new(1,0,0,35)
-Title.BackgroundTransparency = 1
-Title.Text = "MIU HUB"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 24
-Title.TextColor3 = Color3.new(1,1,1)
+-- Nút bấm
+toggleBtn.MouseButton1Click:Connect(toggleWave)
 
-local Button = Instance.new("TextButton")
-Button.Parent = Main
-Button.Size = UDim2.new(0.8,0,0,45)
-Button.Position = UDim2.new(0.1,0,0.5,0)
-Button.BackgroundColor3 = Color3.fromRGB(255,130,200)
-Button.Text = "TEST BUTTON"
-Button.TextColor3 = Color3.new(1,1,1)
-Button.Font = Enum.Font.GothamBold
-Button.TextSize = 20
-
-Instance.new("UICorner",Button).CornerRadius = UDim.new(0,14)
-
-Button.MouseButton1Click:Connect(function()
-	Button.Text = "WORKING!"
+-- Hotkey: Press "F" để toggle
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.F then
+        toggleWave()
+    end
 end)
 
-print("MIU HUB GUI LOADED")
+-- Tự động tái phát hiện wave khi Workspace thay đổi (sóng mới xuất hiện)
+Workspace.ChildAdded:Connect(function(child)
+    if waveFrozen then
+        -- Nếu đang freeze, ẩn luôn object mới
+        task.wait(0.5)
+        local nameLower = child.Name:lower()
+        if nameLower:find("wave") or nameLower:find("tsunami") or child:IsA("BasePart") then
+            child.Transparency = 1
+            child.CanCollide = false
+            child.Anchored = true
+            table.insert(waveObjects, child)
+            print("[Wave] New wave object hidden immediately")
+        end
+    end
+end)
+
+-- Chạy speed cao mặc định
+humanoid.WalkSpeed = godSpeed
+
+print("=== Wave Toggle Script Loaded ===")
+print("Click GUI button or press [F] to toggle wave on/off!")
+print("Status: Wave RUNNING (default)")
+
+-- Đổi màu nút khi hover
+toggleBtn.MouseEnter:Connect(function()
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
+end)
+toggleBtn.MouseLeave:Connect(function()
+    if waveFrozen then
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 120)
+    else
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
