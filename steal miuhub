@@ -1,630 +1,603 @@
--- ==========================================
--- KICK A LUCKY BLOCK - AUTO STEAL BRAINROT
--- by: HackerAI Pentest
--- Game: https://www.roblox.com/games/89469502395769
--- ==========================================
+--[[
+  Script de Pentest para Kick a Lucky Block
+  Game ID: 89469502395769
+  Autorizado para testes de penetração
+]]
 
--- Configurações
-local targetBrainrotName = "" -- Nome do brainrot alvo (preencher via UI)
-local autoStealEnabled = false
-local scanInterval = 3 -- segundos entre scans
-
--- Serviços
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
 
--- Função para log
-local function log(msg, color)
-    color = color or Color3.fromRGB(255,255,255)
-    warn("[STEAL] " .. msg)
-    if game:GetService("CoreGui"):FindFirstChild("HackerAISteal") then
-        local frame = game:GetService("CoreGui").HackerAISteal
-        if frame and frame.Status then
-            frame.Status.Text = msg
-            frame.Status.TextColor3 = color
+-- Configuração
+local brainrotName = ""  -- Nome do brainrot alvo
+local targetPlayer = ""  -- Nome do jogador alvo
+local autoSteal = false
+local remoteLog = {}
+local currentMethod = "rev_S_Steal"
+
+-- Criar GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KickLuckyBlock_Pentest"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 450, 0, 600)
+mainFrame.Position = UDim2.new(0, 20, 0.3, -300)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = mainFrame
+
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 35)
+titleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local UICorner2 = Instance.new("UICorner")
+UICorner2.CornerRadius = UDim.new(0, 8)
+UICorner2.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -10, 1, 0)
+titleLabel.Position = UDim2.new(0, 10, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "🔍 Remote Spy + Steal (Kick a Lucky Block)"
+titleLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 14
+titleLabel.Parent = titleBar
+
+-- Função para criar label
+local function createLabel(text, parent)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 13
+    label.Parent = parent
+    return label
+end
+
+-- ScrollingFrame para status
+local statusFrame = Instance.new("ScrollingFrame")
+statusFrame.Size = UDim2.new(1, -20, 0, 200)
+statusFrame.Position = UDim2.new(0, 10, 0, 40)
+statusFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+statusFrame.BorderSizePixel = 0
+statusFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+statusFrame.ScrollBarThickness = 6
+statusFrame.Parent = mainFrame
+
+local UICorner3 = Instance.new("UICorner")
+UICorner3.CornerRadius = UDim.new(0, 4)
+UICorner3.Parent = statusFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 2)
+UIListLayout.Parent = statusFrame
+
+local function addStatus(text, color)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -6, 0, 16)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = color or Color3.fromRGB(180, 180, 180)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 11
+    label.Parent = statusFrame
+    statusFrame.CanvasSize = UDim2.new(0, 0, 0, statusFrame.CanvasSize.Y.Offset + 18)
+    task.wait(0.02)
+end
+
+addStatus("🚀 Inicializando script de pentest...", Color3.fromRGB(100, 200, 255))
+addStatus("✅ Bem-vindo! Use INSERT para abrir/fechar GUI", Color3.fromRGB(100, 255, 100))
+
+-- Input para nome do brainrot
+local inputLabel1 = createLabel("Nome do Brainrot alvo:", mainFrame)
+inputLabel1.Position = UDim2.new(0, 10, 0, 250)
+
+local brainrotInput = Instance.new("TextBox")
+brainrotInput.Size = UDim2.new(1, -20, 0, 28)
+brainrotInput.Position = UDim2.new(0, 10, 0, 272)
+brainrotInput.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+brainrotInput.BorderSizePixel = 0
+brainrotInput.PlaceholderText = "Ex: Mega Brainrot, Golden Brainrot..."
+brainrotInput.Text = ""
+brainrotInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+brainrotInput.Font = Enum.Font.Gotham
+brainrotInput.TextSize = 13
+brainrotInput.Parent = mainFrame
+
+local UICornerB = Instance.new("UICorner")
+UICornerB.CornerRadius = UDim.new(0, 4)
+UICornerB.Parent = brainrotInput
+
+local inputLabel2 = createLabel("Nome do Jogador alvo:", mainFrame)
+inputLabel2.Position = UDim2.new(0, 10, 0, 308)
+
+local playerInput = Instance.new("TextBox")
+playerInput.Size = UDim2.new(1, -20, 0, 28)
+playerInput.Position = UDim2.new(0, 10, 0, 330)
+playerInput.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+playerInput.BorderSizePixel = 0
+playerInput.PlaceholderText = "Ex: PlayerName123"
+playerInput.Text = ""
+playerInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+playerInput.Font = Enum.Font.Gotham
+playerInput.TextSize = 13
+playerInput.Parent = mainFrame
+
+local UICornerB2 = Instance.new("UICorner")
+UICornerB2.CornerRadius = UDim.new(0, 4)
+UICornerB2.Parent = playerInput
+
+-- Botões
+local function createButton(text, posY, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 32)
+    btn.Position = UDim2.new(0, 10, 0, posY)
+    btn.BackgroundColor3 = color or Color3.fromRGB(50, 120, 200)
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 13
+    btn.Parent = mainFrame
+    
+    local UICornerBtn = Instance.new("UICorner")
+    UICornerBtn.CornerRadius = UDim.new(0, 4)
+    UICornerBtn.Parent = btn
+    
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function createToggleButton(text, posY, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 32)
+    btn.Position = UDim2.new(0, 10, 0, posY)
+    btn.BackgroundColor3 = color or Color3.fromRGB(60, 60, 60)
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 12
+    btn.Parent = mainFrame
+    
+    local UICornerBtn = Instance.new("UICorner")
+    UICornerBtn.CornerRadius = UDim.new(0, 4)
+    UICornerBtn.Parent = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        callback(btn)
+    end)
+    return btn
+end
+
+-- REMOTE SPY: Hook FireServer em todos os RemoteEvents
+addStatus("🔌 Instalando RemoteSpy...", Color3.fromRGB(255, 200, 100))
+
+local fireServerHooks = {}
+local remoteEventsFound = {}
+
+-- Função para escanear RemoteEvents
+local function scanRemotes()
+    local remotes = {}
+    local function scan(instance)
+        if instance:IsA("RemoteEvent") or instance:IsA("RemoteFunction") then
+            table.insert(remotes, instance)
+        end
+        for _, child in pairs(instance:GetChildren()) do
+            scan(child)
+        end
+    end
+    scan(ReplicatedStorage)
+    scan(workspace)
+    return remotes
+end
+
+-- Hook FireServer usando hookfunction (para executors que suportam)
+local hookSuccess = false
+local oldFireServer = nil
+
+-- Tenta método 1: hookfunction no FireServer
+pcall(function()
+    local RemoteEventClass = Instance.new("RemoteEvent")
+    oldFireServer = RemoteEventClass.FireServer
+    
+    local hooked = hookfunction(RemoteEventClass.FireServer, function(self, ...)
+        local args = {...}
+        local argsStr = ""
+        for i, v in ipairs(args) do
+            if i > 1 then
+                argsStr = argsStr .. ", "
+            end
+            argsStr = argsStr .. tostring(v) .. " (" .. typeof(v) .. ")"
+        end
+        
+        local logText = string.format("📡 %s:FireServer(%s)", self:GetFullName(), argsStr)
+        addStatus(logText, Color3.fromRGB(255, 200, 100))
+        
+        -- Salva no log
+        table.insert(remoteLog, {
+            remote = self,
+            path = self:GetFullName(),
+            args = args,
+            time = tick()
+        })
+        
+        -- Limitar log
+        if #remoteLog > 50 then
+            table.remove(remoteLog, 1)
+        end
+        
+        return oldFireServer(self, ...)
+    end)
+    
+    hookSuccess = true
+    addStatus("✅ RemoteSpy ativado! (hookfunction)", Color3.fromRGB(100, 255, 100))
+end)
+
+-- Se hookfunction falhar, tenta método 2: hookmetamethod __namecall
+if not hookSuccess then
+    pcall(function()
+        local oldNamecall = nil
+        oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+            
+            if method == "FireServer" and (self:IsA("RemoteEvent")) then
+                -- Ignora alguns remotes comuns para evitar spam
+                local name = self.Name
+                if not name:match("CharacterSound") and not name:match("Animation") then
+                    local argsStr = ""
+                    for i, v in ipairs(args) do
+                        if i > 1 then
+                            argsStr = argsStr .. ", "
+                        end
+                        argsStr = argsStr .. tostring(v) .. " (" .. typeof(v) .. ")"
+                    end
+                    
+                    -- Só loga se for relevante (contém steal ou brainrot)
+                    local fullPath = self:GetFullName()
+                    if fullPath:find("Steal") or fullPath:find("steal") or fullPath:find("rev_") or argsStr:find("brainrot") or argsStr:find("Brainrot") then
+                        addStatus(string.format("📡 %s:FireServer(%s)", fullPath, argsStr), Color3.fromRGB(255, 200, 100))
+                        
+                        table.insert(remoteLog, {
+                            remote = self,
+                            path = fullPath,
+                            args = args,
+                            time = tick()
+                        })
+                        if #remoteLog > 50 then
+                            table.remove(remoteLog, 1)
+                        end
+                    end
+                end
+            end
+            
+            return oldNamecall(self, ...)
+        end)
+        hookSuccess = true
+        addStatus("✅ RemoteSpy ativado! (__namecall)", Color3.fromRGB(100, 255, 100))
+    end)
+end
+
+if not hookSuccess then
+    addStatus("⚠️ RemoteSpy: hookfunction não suportado. Usando scan manual.", Color3.fromRGB(255, 150, 50))
+    
+    -- Método 3: substituir FireServer em cada RemoteEvent manualmente
+    task.spawn(function()
+        local allRemotes = scanRemotes()
+        for _, remote in ipairs(allRemotes) do
+            local originalFire = remote.FireServer
+            local remotePath = remote:GetFullName()
+            
+            if not fireServerHooks[remotePath] then
+                local success = pcall(function()
+                    remote.FireServer = function(self, ...)
+                        local args = {...}
+                        local argsStr = ""
+                        for i, v in ipairs(args) do
+                            if i > 1 then
+                                argsStr = argsStr .. ", "
+                            end
+                            argsStr = argsStr .. tostring(v) .. " (" .. typeof(v) .. ")"
+                        end
+                        
+                        if remotePath:find("Steal") or remotePath:find("steal") or remotePath:find("rev_") then
+                            addStatus(string.format("📡 %s:FireServer(%s)", remotePath, argsStr), Color3.fromRGB(255, 200, 100))
+                            
+                            table.insert(remoteLog, {
+                                remote = self,
+                                path = remotePath,
+                                args = args,
+                                time = tick()
+                            })
+                            if #remoteLog > 50 then
+                                table.remove(remoteLog, 1)
+                            end
+                        end
+                        
+                        return originalFire(self, ...)
+                    end
+                    fireServerHooks[remotePath] = true
+                end)
+            end
+        end
+        addStatus("✅ RemoteSpy: " .. #allRemotes .. " remotes escaneados", Color3.fromRGB(100, 255, 100))
+    end)
+end
+
+-- Localizar remotes de steal
+local rev_S_Steal = ReplicatedStorage and 
+    (ReplicatedStorage:FindFirstChild("Shared") and 
+        ReplicatedStorage.Shared:FindFirstChild("Packages") and
+        ReplicatedStorage.Shared.Packages:FindFirstChild("Network") and
+        ReplicatedStorage.Shared.Packages.Network:FindFirstChild("rev_S_Steal")
+    ) or nil
+
+if not rev_S_Steal then
+    -- Tenta outros paths comuns
+    local paths = {
+        ReplicatedStorage:FindFirstChild("Packages"),
+        ReplicatedStorage:FindFirstChild("Network"),
+        ReplicatedStorage:FindFirstChild("Shared"),
+    }
+    for _, p in ipairs(paths) do
+        if p then
+            rev_S_Steal = rev_S_Steal or p:FindFirstChild("rev_S_Steal", true)
         end
     end
 end
 
--- Função para tentar FireServer com múltiplos formatos de argumento
-local function fireStealRemote(targetName, targetPlayer)
-    -- Caminhos possíveis para o RemoteEvent
-    local remotePaths = {
-        ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Packages") and ReplicatedStorage.Shared.Packages:FindFirstChild("Network") and ReplicatedStorage.Shared.Packages.Network:FindFirstChild("rev_S_Steal"),
-        ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("Net") and ReplicatedStorage.Packages.Net:FindFirstChild("rev_S_Steal"),
-        ReplicatedStorage:FindFirstChild("rev_S_Steal"),
-        ReplicatedStorage:FindFirstChild("Network") and ReplicatedStorage.Network:FindFirstChild("rev_S_Steal"),
-    }
-    
-    local remote = nil
-    for _, r in ipairs(remotePaths) do
-        if r and r:IsA("RemoteEvent") then
-            remote = r
-            break
-        end
+local DeliverySteal = nil
+local deliveryPaths = {
+    ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("Net") and ReplicatedStorage.Packages.Net:FindFirstChild("RE/StealService/DeliverySteal"),
+    ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("Net") and ReplicatedStorage.Packages.Net:FindFirstChild("DeliverySteal", true),
+}
+
+for _, p in ipairs(deliveryPaths) do
+    if p then
+        DeliverySteal = p
+        break
     end
+end
+
+addStatus("📍 rev_S_Steal: " .. tostring(rev_S_Steal and rev_S_Steal:GetFullName() or "NÃO ENCONTRADO"), Color3.fromRGB(200, 200, 100))
+addStatus("📍 DeliverySteal: " .. tostring(DeliverySteal and DeliverySteal:GetFullName() or "NÃO ENCONTRADO"), Color3.fromRGB(200, 200, 100))
+
+-- Função para tentar todas as combinações de argumentos
+local function tryAllFormats(brainrotName, playerName)
+    local plr = playerName ~= "" and Players:FindFirstChild(playerName) or nil
+    local targetPlayerId = plr and plr.UserId or 0
+    local targetPlayerObj = plr
     
-    if not remote then
-        -- Busca exaustiva
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") and (obj.Name == "rev_S_Steal" or obj.Name:match("rev_S_Steal")) then
-                remote = obj
-                break
-            end
-        end
-    end
-    
-    if not remote then
-        log("❌ RemoteEvent rev_S_Steal não encontrado!", Color3.fromRGB(255,0,0))
+    if not rev_S_Steal then
+        addStatus("❌ rev_S_Steal não encontrado! Não é possível continuar.", Color3.fromRGB(255, 100, 100))
         return false
     end
     
-    log("🔍 RemoteEvent encontrado: " .. remote:GetFullName())
+    addStatus("🚀 Tentando roubar: " .. brainrotName .. " de " .. playerName, Color3.fromRGB(100, 255, 200))
     
-    -- TENTATIVAS DE ARGUMENTOS
-    local attemptFormats = {
-        -- Formato 1: Apenas nome do brainrot (string)
-        function() remote:FireServer(targetName) end,
-        -- Formato 2: Nome e player alvo
-        function() remote:FireServer(targetName, targetPlayer) end,
-        -- Formato 3: Player alvo, nome
-        function() remote:FireServer(targetPlayer, targetName) end,
-        -- Formato 4: Tabela com nome
-        function() remote:FireServer({name = targetName}) end,
-        -- Formato 5: Índice 1 = nome
-        function() remote:FireServer({[1] = targetName}) end,
-        -- Formato 6: Nome + quantidade 1
-        function() remote:FireServer(targetName, 1) end,
-        -- Formato 7: ID do brainrot (hash do nome)
-        function() remote:FireServer(targetName:lower():gsub("%s+", "")) end,
-        -- Formato 8: Apenas FireServer vazio (steal aleatório)
-        function() remote:FireServer() end,
-        -- Formato 9: Nome do brainrot + nome do jogador alvo
-        function() remote:FireServer(targetName, targetPlayer and targetPlayer.Name or "") end,
-        -- Formato 10: Tabela completa
-        function() remote:FireServer({Name = targetName, Player = targetPlayer}) end,
-        -- Formato 11: String vazia + nome
-        function() remote:FireServer("", targetName) end,
-        -- Formato 12: Nome + true
-        function() remote:FireServer(targetName, true) end,
-        -- Formato 13: Player + nome + bool
-        function() remote:FireServer(targetPlayer, targetName, true) end,
-        -- Formato 14: Apenas "steal" + nome
-        function() remote:FireServer("steal", targetName) end,
-        -- Formato 15: Nome do brainrot + CFrame
-        function() remote:FireServer(targetName, CFrame.new(0,0,0)) end,
-    }
+    -- Lista de formatos de argumentos para tentar
+    local attempts = {}
     
-    for i, attempt in ipairs(attemptFormats) do
-        local success, err = pcall(attempt)
-        if success then
-            log("✅ Tentativa " .. i .. " bem-sucedida! Argumento: " .. targetName, Color3.fromRGB(0,255,0))
-            return true
-        else
-            log("⚠️ Tentativa " .. i .. " falhou: " .. tostring(err))
-        end
+    -- Formato 1: Apenas string (nome do brainrot)
+    table.insert(attempts, {brainrotName})
+    
+    -- Formato 2: Nome do brainrot + nome do jogador
+    if playerName ~= "" then
+        table.insert(attempts, {brainrotName, playerName})
+        table.insert(attempts, {playerName, brainrotName})
     end
     
-    log("❌ Todas as tentativas falharam para: " .. targetName, Color3.fromRGB(255,0,0))
+    -- Formato 3: Nome do brainrot + objeto do jogador
+    if targetPlayerObj then
+        table.insert(attempts, {brainrotName, targetPlayerObj})
+        table.insert(attempts, {targetPlayerObj, brainrotName})
+    end
+    
+    -- Formato 4: UserId
+    if targetPlayerId > 0 then
+        table.insert(attempts, {brainrotName, targetPlayerId})
+        table.insert(attempts, {targetPlayerId, brainrotName})
+        table.insert(attempts, {tostring(targetPlayerId), brainrotName})
+    end
+    
+    -- Formato 5: Tabela com nome do brainrot
+    table.insert(attempts, {{Name = brainrotName}})
+    table.insert(attempts, {{Target = brainrotName}})
+    table.insert(attempts, {{brainrot = brainrotName}})
+    
+    -- Formato 6: string, string (nome, id do jogador)
+    if targetPlayerObj then
+        table.insert(attempts, {brainrotName, tostring(targetPlayerObj.UserId)})
+    end
+    
+    -- Formato 7: Apenas o nome do brainrot em minúsculo
+    table.insert(attempts, {brainrotName:lower()})
+    
+    -- Formato 8: Tabela com nome e jogador
+    if targetPlayerObj then
+        table.insert(attempts, {{Brainrot = brainrotName, Player = targetPlayerObj}})
+        table.insert(attempts, {{brainrotName, targetPlayerObj}})
+    end
+    
+    -- Formato 9: Número (ID do brainrot)
+    table.insert(attempts, {tostring(brainrotName)})
+    
+    -- Tentar cada formato
+    for i, args in ipairs(attempts) do
+        local success, result = pcall(function()
+            rev_S_Steal:FireServer(unpack(args))
+        end)
+        
+        local argsStr = ""
+        for _, v in ipairs(args) do
+            argsStr = argsStr .. ", " .. tostring(v)
+        end
+        argsStr = argsStr:sub(3)
+        
+        if success then
+            addStatus(string.format("✅ [%d/%d] rev_S_Steal:FireServer(%s) -> SUCESSO!", i, #attempts, argsStr), Color3.fromRGB(100, 255, 100))
+            return true
+        else
+            addStatus(string.format("❌ [%d/%d] rev_S_Steal:FireServer(%s) -> Falhou", i, #attempts, argsStr), Color3.fromRGB(150, 100, 100))
+        end
+        
+        task.wait(0.3)
+    end
+    
     return false
 end
 
--- Tenta também DeliverySteal
+-- Função para tentar DeliverySteal (quando o brainrot está weldado no personagem)
 local function tryDeliverySteal()
-    local deliveryPaths = {
-        ReplicatedStorage:FindFirstChild("Packages") and ReplicatedStorage.Packages:FindFirstChild("Net") and ReplicatedStorage.Packages.Net:FindFirstChild("RE/StealService/DeliverySteal"),
-        ReplicatedStorage:FindFirstChild("Shared") and ReplicatedStorage.Shared:FindFirstChild("Packages") and ReplicatedStorage.Shared.Packages:FindFirstChild("Network") and ReplicatedStorage.Shared.Packages.Network:FindFirstChild("RE/StealService/DeliverySteal"),
-    }
-    
-    local deliveryRemote = nil
-    for _, r in ipairs(deliveryPaths) do
-        if r then
-            deliveryRemote = r
-            break
-        end
+    if not DeliverySteal then
+        addStatus("❌ DeliverySteal não encontrado!", Color3.fromRGB(255, 100, 100))
+        return false
     end
     
-    if not deliveryRemote then
-        -- Busca exaustiva
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") and (obj.Name == "DeliverySteal" or obj.Name:match("DeliverySteal")) then
-                deliveryRemote = obj
-                break
+    addStatus("🚀 Tentando DeliverySteal (verificando WeldConstraint)...", Color3.fromRGB(100, 200, 255))
+    
+    -- Procurar por brainrots weldados no personagem
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local root = char.HumanoidRootPart
+        
+        -- Verificar se há WeldConstraint no HumanoidRootPart conectado a um brainrot
+        for _, constraint in pairs(root:GetChildren()) do
+            if constraint:IsA("WeldConstraint") and constraint.Part1 then
+                local attachedPart = constraint.Part1
+                addStatus(string.format("🔗 WeldConstraint encontrado: Part1 = %s", attachedPart.Name), Color3.fromRGB(100, 200, 255))
+                
+                -- Tenta DeliverySteal
+                local success, result = pcall(function()
+                    DeliverySteal:FireServer()
+                end)
+                
+                if success then
+                    addStatus("✅ DeliverySteal:FireServer() -> SUCESSO!", Color3.fromRGB(100, 255, 100))
+                    return true
+                else
+                    addStatus("❌ DeliverySteal:FireServer() -> Falhou", Color3.fromRGB(150, 100, 100))
+                end
+                
+                -- Tenta com argumentos
+                local argsVariants = {
+                    {attachedPart},
+                    {attachedPart.Name},
+                    {attachedPart, root},
+                    {{Object = attachedPart, Target = root}},
+                }
+                
+                for i, args in ipairs(argsVariants) do
+                    local s, r = pcall(function()
+                        DeliverySteal:FireServer(unpack(args))
+                    end)
+                    if s then
+                        addStatus(string.format("✅ DeliverySteal com args -> SUCESSO!"), Color3.fromRGB(100, 255, 100))
+                        return true
+                    end
+                    task.wait(0.2)
+                end
             end
         end
-    end
-    
-    if deliveryRemote then
-        log("✅ DeliverySteal encontrado: " .. deliveryRemote:GetFullName())
-        local success, err = pcall(function()
-            deliveryRemote:FireServer()
-        end)
-        if success then
-            log("✅ DeliverySteal executado com sucesso!", Color3.fromRGB(0,255,0))
-        else
-            log("❌ DeliverySteal falhou: " .. tostring(err))
-        end
-    end
-end
-
--- Função para encontrar brainrots pelo nome em Workspace
-local function findBrainrotInWorkspace(name)
-    local results = {}
-    name = name:lower():gsub("%s+", "")
-    
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        local objName = (obj.Name or ""):lower():gsub("%s+", "")
-        if objName:find(name) or name:find(objName) then
-            table.insert(results, obj)
-        end
-        -- Verifica também o DisplayName se existir
-        if obj:IsA("Model") then
-            for _, child in ipairs(obj:GetDescendants()) do
-                local childName = (child.Name or ""):lower():gsub("%s+", "")
-                if childName:find(name) or name:find(childName) then
-                    table.insert(results, child)
+        
+        -- Verificar todo o workspace por brainrots weldados no personagem
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("WeldConstraint") and obj.Part1 and (obj.Part0 == root or obj.Part1 == root) then
+                local otherPart = (obj.Part0 == root) and obj.Part1 or obj.Part0
+                if otherPart then
+                    addStatus(string.format("🔗 WeldConstraint no workspace: %s conectado a %s", otherPart.Name, root.Name), Color3.fromRGB(100, 200, 255))
+                    
+                    local s, r = pcall(function()
+                        DeliverySteal:FireServer()
+                    end)
+                    if s then
+                        addStatus("✅ DeliverySteal:FireServer() via workspace -> SUCESSO!", Color3.fromRGB(100, 255, 100))
+                        return true
+                    end
                 end
             end
         end
     end
     
-    return results
-end
-
--- Função para encontrar bases de outros jogadores
-local function findBases()
-    local bases = {}
-    -- Procura por estruturas de base no Workspace
-    local baseKeywords = {"base", "plot", "tycoon", "claim", "terrain"}
-    
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        local objName = (obj.Name or ""):lower()
-        for _, kw in ipairs(baseKeywords) do
-            if objName:find(kw) then
-                table.insert(bases, obj)
-                break
-            end
-        end
-    end
-    
-    -- Procura por partes com tags de jogador
-    for _, part in ipairs(Workspace:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Model") then
-            -- Verifica se tem atributo de dono
-            local ownerAttr = part:GetAttribute("Owner") or part:GetAttribute("owner")
-            if ownerAttr and ownerAttr ~= LocalPlayer.Name then
-                table.insert(bases, part)
-            end
-        end
-    end
-    
-    return bases
-end
-
--- Função para teleportar para uma base
-local function teleportToBase(base)
-    if not base then return end
-    local rootPart = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-    
-    local targetPos
-    if base:IsA("Model") and base:FindFirstChild("PrimaryPart") then
-        targetPos = base.PrimaryPart.Position
-    elseif base:IsA("BasePart") then
-        targetPos = base.Position
-    elseif base:IsA("Model") then
-        local parts = base:GetDescendants()
-        for _, part in ipairs(parts) do
-            if part:IsA("BasePart") then
-                targetPos = part.Position
-                break
-            end
-        end
-    end
-    
-    if targetPos then
-        rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
-        log("✅ Teleportado para base: " .. base:GetFullName(), Color3.fromRGB(0,255,0))
-        wait(0.5)
-    end
-end
-
--- CRIAR UI
-local function createUI()
-    -- Verifica se já existe
-    if game:GetService("CoreGui"):FindFirstChild("HackerAISteal") then
-        game:GetService("CoreGui").HackerAISteal:Destroy()
-    end
-    
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "HackerAISteal"
-    screenGui.Parent = game:GetService("CoreGui")
-    screenGui.ResetOnSpawn = false
-    
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 400, 0, 500)
-    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    mainFrame.BackgroundTransparency = 0.08
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Parent = screenGui
-    
-    local uiCorner = Instance.new("UICorner")
-    uiCorner.CornerRadius = UDim.new(0, 12)
-    uiCorner.Parent = mainFrame
-    
-    -- TÍTULO
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-    title.BackgroundTransparency = 0.3
-    title.Text = "🎯 KICK A LUCKY BLOCK - STEALER"
-    title.TextColor3 = Color3.fromRGB(255, 200, 50)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
-    
-    -- CAMPO DE TEXTO: Nome do Brainrot
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(0.9, 0, 0, 25)
-    nameLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = "🎯 Nome do Brainrot para roubar:"
-    nameLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.Font = Enum.Font.Gotham
-    nameLabel.TextSize = 14
-    nameLabel.Parent = mainFrame
-    
-    local nameBox = Instance.new("TextBox")
-    nameBox.Name = "BrainrotNameBox"
-    nameBox.Size = UDim2.new(0.9, 0, 0, 35)
-    nameBox.Position = UDim2.new(0.05, 0, 0.16, 0)
-    nameBox.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    nameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameBox.PlaceholderText = "Ex: Meow, Strawberry Elephant, OG, Rainbow..."
-    nameBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 140)
-    nameBox.Font = Enum.Font.Gotham
-    nameBox.TextSize = 16
-    nameBox.ClearTextOnFocus = false
-    nameBox.Parent = mainFrame
-    
-    local nameCorner = Instance.new("UICorner")
-    nameCorner.CornerRadius = UDim.new(0, 8)
-    nameCorner.Parent = nameBox
-    
-    -- STATUS
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Name = "Status"
-    statusLabel.Size = UDim2.new(0.9, 0, 0, 40)
-    statusLabel.Position = UDim2.new(0.05, 0, 0.24, 0)
-    statusLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    statusLabel.BackgroundTransparency = 0.5
-    statusLabel.Text = "Pronto. Digite o nome do brainrot e clique em STEAL"
-    statusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    statusLabel.TextScaled = true
-    statusLabel.Font = Enum.Font.Gotham
-    statusLabel.Parent = mainFrame
-    
-    local statusCorner = Instance.new("UICorner")
-    statusCorner.CornerRadius = UDim.new(0, 6)
-    statusCorner.Parent = statusLabel
-    
-    -- LISTA DE BASES ENCONTRADAS
-    local baseListLabel = Instance.new("TextLabel")
-    baseListLabel.Size = UDim2.new(0.9, 0, 0, 20)
-    baseListLabel.Position = UDim2.new(0.05, 0, 0.33, 0)
-    baseListLabel.BackgroundTransparency = 1
-    baseListLabel.Text = "🏠 Bases detectadas:"
-    baseListLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-    baseListLabel.TextXAlignment = Enum.TextXAlignment.Left
-    baseListLabel.Font = Enum.Font.Gotham
-    baseListLabel.TextSize = 13
-    baseListLabel.Parent = mainFrame
-    
-    local baseListBox = Instance.new("ScrollingFrame")
-    baseListBox.Name = "BaseList"
-    baseListBox.Size = UDim2.new(0.9, 0, 0, 100)
-    baseListBox.Position = UDim2.new(0.05, 0, 0.37, 0)
-    baseListBox.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-    baseListBox.BackgroundTransparency = 0.5
-    baseListBox.BorderSizePixel = 0
-    baseListBox.Parent = mainFrame
-    
-    local baseListCorner = Instance.new("UICorner")
-    baseListCorner.CornerRadius = UDim.new(0, 6)
-    baseListCorner.Parent = baseListBox
-    
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 4)
-    listLayout.Parent = baseListBox
-    
-    -- BOTÕES
-    local buttonY = 0.58
-    
-    -- Botão: SCAN BASES
-    local scanBtn = Instance.new("TextButton")
-    scanBtn.Size = UDim2.new(0.42, 0, 0, 40)
-    scanBtn.Position = UDim2.new(0.05, 0, buttonY, 0)
-    scanBtn.BackgroundColor3 = Color3.fromRGB(50, 80, 200)
-    scanBtn.Text = "🔍 Scan Bases"
-    scanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    scanBtn.Font = Enum.Font.GothamBold
-    scanBtn.TextSize = 14
-    scanBtn.Parent = mainFrame
-    
-    local scanCorner = Instance.new("UICorner")
-    scanCorner.CornerRadius = UDim.new(0, 8)
-    scanCorner.Parent = scanBtn
-    
-    -- Botão: SCAN BRAINROTS
-    local scanBrainBtn = Instance.new("TextButton")
-    scanBrainBtn.Size = UDim2.new(0.42, 0, 0, 40)
-    scanBrainBtn.Position = UDim2.new(0.53, 0, buttonY, 0)
-    scanBrainBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
-    scanBrainBtn.Text = "🧠 Scan Brainrots"
-    scanBrainBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    scanBrainBtn.Font = Enum.Font.GothamBold
-    scanBrainBtn.TextSize = 14
-    scanBrainBtn.Parent = mainFrame
-    
-    local scanBrainCorner = Instance.new("UICorner")
-    scanBrainCorner.CornerRadius = UDim.new(0, 8)
-    scanBrainCorner.Parent = scanBrainBtn
-    
-    buttonY = 0.68
-    
-    -- Botão: STEAL!
-    local stealBtn = Instance.new("TextButton")
-    stealBtn.Size = UDim2.new(0.9, 0, 0, 50)
-    stealBtn.Position = UDim2.new(0.05, 0, buttonY, 0)
-    stealBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    stealBtn.Text = "🔥 STEAL BRAINROT!"
-    stealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    stealBtn.Font = Enum.Font.GothamBold
-    stealBtn.TextSize = 18
-    stealBtn.Parent = mainFrame
-    
-    local stealCorner = Instance.new("UICorner")
-    stealCorner.CornerRadius = UDim.new(0, 10)
-    stealCorner.Parent = stealBtn
-    
-    buttonY = 0.80
-    
-    -- Botão: AUTO STEAL TOGGLE
-    local autoBtn = Instance.new("TextButton")
-    autoBtn.Name = "AutoBtn"
-    autoBtn.Size = UDim2.new(0.42, 0, 0, 35)
-    autoBtn.Position = UDim2.new(0.05, 0, buttonY, 0)
-    autoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    autoBtn.Text = "⏸️ AUTO STEAL: OFF"
-    autoBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    autoBtn.Font = Enum.Font.GothamBold
-    autoBtn.TextSize = 12
-    autoBtn.Parent = mainFrame
-    
-    local autoCorner = Instance.new("UICorner")
-    autoCorner.CornerRadius = UDim.new(0, 8)
-    autoCorner.Parent = autoBtn
-    
-    -- Botão: DeliverySteal
-    local deliveryBtn = Instance.new("TextButton")
-    deliveryBtn.Size = UDim2.new(0.42, 0, 0, 35)
-    deliveryBtn.Position = UDim2.new(0.53, 0, buttonY, 0)
-    deliveryBtn.BackgroundColor3 = Color3.fromRGB(100, 50, 150)
-    deliveryBtn.Text = "📦 Delivery Steal"
-    deliveryBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    deliveryBtn.Font = Enum.Font.GothamBold
-    deliveryBtn.TextSize = 12
-    deliveryBtn.Parent = mainFrame
-    
-    local deliveryCorner = Instance.new("UICorner")
-    deliveryCorner.CornerRadius = UDim.new(0, 8)
-    deliveryCorner.Parent = deliveryBtn
-    
-    -- FECHAR
-    local closeBtn = Instance.new("ImageButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    closeBtn.BackgroundTransparency = 0.3
-    closeBtn.Text = "X"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Parent = mainFrame
-    
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 8)
-    closeCorner.Parent = closeBtn
-    
-    -- Funções dos Botões
-    closeBtn.MouseButton1Click:Connect(function()
-        screenGui:Destroy()
-        autoStealEnabled = false
+    -- Se não encontrar WeldConstraint, tenta mesmo assim
+    addStatus("⚠️ Nenhum WeldConstraint encontrado. Tentando DeliverySteal mesmo assim...", Color3.fromRGB(255, 200, 100))
+    local s, r = pcall(function()
+        DeliverySteal:FireServer()
     end)
+    if s then
+        addStatus("✅ DeliverySteal:FireServer() -> SUCESSO!", Color3.fromRGB(100, 255, 100))
+        return true
+    end
     
-    -- SCAN BASES
-    scanBtn.MouseButton1Click:Connect(function()
-        log("🔍 Escaneando bases...")
-        -- Limpar lista
-        for _, child in ipairs(baseListBox:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
+    addStatus("❌ DeliverySteal falhou. Tente ficar mais perto do brainrot.", Color3.fromRGB(255, 100, 100))
+    return false
+end
+
+-- Botões
+local yPos = 372
+
+-- Botão: Tentar Furto (rev_S_Steal)
+createButton("🎯 INICIAR STEAL (rev_S_Steal)", yPos, Color3.fromRGB(50, 180, 100), function()
+    brainrotName = brainrotInput.Text
+    targetPlayer = playerInput.Text
+    
+    if brainrotName == "" then
+        addStatus("⚠️ Digite o nome do brainrot!", Color3.fromRGB(255, 200, 100))
+        return
+    end
+    
+    addStatus("🎯 INICIANDO STEAL: " .. brainrotName, Color3.fromRGB(100, 255, 200))
+    tryAllFormats(brainrotName, targetPlayer)
+end)
+
+yPos = yPos + 38
+
+-- Botão: Tentar DeliverySteal
+createButton("📦 TENTAR DELIVERY STEAL", yPos, Color3.fromRGB(50, 120, 200), function()
+    tryDeliverySteal()
+end)
+
+yPos = yPos + 38
+
+-- Botão: Scan de WeldConstraints + Auto Delivery
+createButton("🔗 SCAN + AUTO DELIVERY (WeldConstraint)", yPos, Color3.fromRGB(150, 80, 200), function()
+    addStatus("🔍 Escaneando WeldConstraints no personagem...", Color3.fromRGB(200, 150, 255))
+    
+    -- Loop para monitorar WeldConstraints
+    task.spawn(function()
+        local timeout = 30
+        local startTime = tick()
         
-        local bases = findBases()
-        if #bases == 0 then
-            log("❌ Nenhuma base encontrada. Tente manualmente.", Color3.fromRGB(255,200,0))
-            local noBase = Instance.new("TextButton")
-            noBase.Size = UDim2.new(1, 0, 0, 25)
-            noBase.BackgroundTransparency = 1
-            noBase.Text = "Nenhuma base encontrada"
-            noBase.TextColor3 = Color3.fromRGB(150, 150, 150)
-            noBase.Font = Enum.Font.Gotham
-            noBase.TextSize = 12
-            noBase.Parent = baseListBox
-        else
-            for _, base in ipairs(bases) do
-                local baseBtn = Instance.new("TextButton")
-                baseBtn.Size = UDim2.new(1, 0, 0, 25)
-                baseBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-                baseBtn.BackgroundTransparency = 0.5
-                baseBtn.Text = "📍 " .. base.Name
-                baseBtn.TextColor3 = Color3.fromRGB(200, 200, 255)
-                baseBtn.Font = Enum.Font.Gotham
-                baseBtn.TextSize = 11
-                baseBtn.ClipsDescendants = true
-                baseBtn.Parent = baseListBox
+        while tick() - startTime < timeout do
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local root = char.HumanoidRootPart
                 
-                local baseCorner = Instance.new("UICorner")
-                baseCorner.CornerRadius = UDim.new(0, 4)
-                baseCorner.Parent = baseBtn
-                
-                baseBtn.MouseButton1Click:Connect(function()
-                    log("🚀 Teleportando para base: " .. base.Name)
-                    teleportToBase(base)
-                    wait(1)
-                    -- Tenta roubar após teleportar
-                    if targetBrainrotName ~= "" then
-                        fireStealRemote(targetBrainrotName, nil)
-                    end
-                end)
-            end
-            log("✅ " .. #bases .. " bases encontradas!", Color3.fromRGB(0,255,0))
-        end
-    end)
-    
-    -- SCAN BRAINROTS
-    scanBrainBtn.MouseButton1Click:Connect(function()
-        local inputName = nameBox.Text
-        if inputName == "" then
-            log("⚠️ Digite um nome para buscar!", Color3.fromRGB(255,200,0))
-            return
-        end
-        log("🔍 Buscando brainrots com nome: " .. inputName)
-        
-        -- Limpar lista
-        for _, child in ipairs(baseListBox:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-        
-        local results = findBrainrotInWorkspace(inputName)
-        if #results == 0 then
-            log("❌ Nenhum brainrot encontrado com: " .. inputName, Color3.fromRGB(255,200,0))
-            local noRes = Instance.new("TextButton")
-            noRes.Size = UDim2.new(1, 0, 0, 25)
-            noRes.BackgroundTransparency = 1
-            noRes.Text = "Nenhum resultado para: " .. inputName
-            noRes.TextColor3 = Color3.fromRGB(150, 150, 150)
-            noRes.Font = Enum.Font.Gotham
-            noRes.TextSize = 11
-            noRes.Parent = baseListBox
-        else
-            for _, obj in ipairs(results) do
-                local objBtn = Instance.new("TextButton")
-                objBtn.Size = UDim2.new(1, 0, 0, 25)
-                objBtn.BackgroundColor3 = Color3.fromRGB(50, 70, 50)
-                objBtn.BackgroundTransparency = 0.5
-                objBtn.Text = "🧠 " .. obj.Name .. " (" .. obj.ClassName .. ")"
-                objBtn.TextColor3 = Color3.fromRGB(200, 255, 200)
-                objBtn.Font = Enum.Font.Gotham
-                objBtn.TextSize = 10
-                objBtn.ClipsDescendants = true
-                objBtn.Parent = baseListBox
-                
-                objBtn.MouseButton1Click:Connect(function()
-                    log("🎯 Alvo selecionado: " .. obj:GetFullName())
-                    nameBox.Text = obj.Name
-                end)
-            end
-            log("✅ " .. #results .. " brainrots encontrados!", Color3.fromRGB(0,255,0))
-        end
-    end)
-    
-    -- STEAL BUTTON
-    stealBtn.MouseButton1Click:Connect(function()
-        targetBrainrotName = nameBox.Text
-        if targetBrainrotName == "" then
-            log("⚠️ Digite o nome do brainrot para roubar!", Color3.fromRGB(255,200,0))
-            return
-        end
-        
-        log("🔥 Iniciando steal para: " .. targetBrainrotName, Color3.fromRGB(255,150,0))
-        
-        -- Tenta várias vezes com intervalos
-        for i = 1, 5 do
-            log("📡 Tentativa " .. i .. "/5...")
-            
-            -- Tenta com rev_S_Steal
-            local result = fireStealRemote(targetBrainrotName, nil)
-            
-            -- Se falhou, tenta com DeliverySteal
-            if not result then
-                tryDeliverySteal()
-            end
-            
-            wait(0.5)
-        end
-        
-        log("✅ Ciclo de steal concluído!", Color3.fromRGB(0,255,0))
-    end)
-    
-    -- AUTO STEAL TOGGLE
-    autoBtn.MouseButton1Click:Connect(function()
-        autoStealEnabled = not autoStealEnabled
-        if autoStealEnabled then
-            autoBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-            autoBtn.Text = "▶️ AUTO STEAL: ON"
-            autoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            log("🔄 AUTO STEAL ATIVADO!", Color3.fromRGB(0,255,0))
-        else
-            autoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            autoBtn.Text = "⏸️ AUTO STEAL: OFF"
-            autoBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-            log("⏸️ AUTO STEAL DESATIVADO", Color3.fromRGB(200,200,200))
-        end
-    end)
-    
-    - DELIVERY STEAL BUTTON
-    deliveryBtn.MouseButton1Click:Connect(function()
-        log("📦 Tentando DeliverySteal...")
-        tryDeliverySteal()
-    end)
-    
-    -- HOTKEY: Insert para toggle
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.Insert then
-            mainFrame.Visible = not mainFrame.Visible
-        end
-    end)
-    
-    -- Auto Steal Loop
-    spawn(function()
-        while true do
-            task.wait(scanInterval)
-            if autoStealEnabled and targetBrainrotName ~= "" then
-                log("🔄 Auto Steal: tentando " .. targetBrainrotName)
-                fireStealRemote(targetBrainrotName, nil)
-                task.wait(0.3)
-                tryDeliverySteal()
-            end
-        end
-    end)
-    
-    log("✅ UI carregada! Pressione Insert para mostrar/esconder", Color3.fromRGB(0,255,0))
-    
-    return mainFrame
-end
-
--- EXECUTAR
-createUI()
+                for _, constraint in pairs(root:GetChildren()) do
+                    if constraint:IsA("WeldConstraint") and constraint.Part1 then
+                        addStatus(string.format("🔗 Brainrot detectado! Nome: %s", constraint.Part1.Name), Color3.fromRGB(100, 255, 200))
+                        
+                        if Delivery
