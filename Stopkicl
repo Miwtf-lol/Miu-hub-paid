@@ -1,251 +1,93 @@
---// MIU HUB - Freeze Wave System
---// Kick A Lucky Block
---// Full GUI + Freeze/Unfreeze Wave
+--// MIU HUB - REAL WAVE FREEZE
+--// Strong Freeze Version
 
-local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 
--- =========================
--- SETTINGS
--- =========================
+local enabled = true
 
-local waveFrozen = false
-local frozenParts = {}
-
--- =========================
 -- GUI
--- =========================
+local gui = Instance.new("ScreenGui")
+gui.Parent = player.PlayerGui
+gui.ResetOnSpawn = false
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MIU_WAVE_GUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+local btn = Instance.new("TextButton")
+btn.Parent = gui
+btn.Size = UDim2.new(0,200,0,50)
+btn.Position = UDim2.new(0.03,0,0.3,0)
+btn.Text = "WAVE FREEZE : ON"
+btn.BackgroundColor3 = Color3.fromRGB(255,105,180)
+btn.TextColor3 = Color3.new(1,1,1)
+btn.TextSize = 20
+btn.Font = Enum.Font.GothamBold
+btn.Active = true
+btn.Draggable = true
 
-local Main = Instance.new("Frame")
-Main.Parent = ScreenGui
-Main.Size = UDim2.new(0,260,0,180)
-Main.Position = UDim2.new(0.03,0,0.35,0)
-Main.BackgroundColor3 = Color3.fromRGB(255,105,180)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0,14)
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,16)
+btn.MouseButton1Click:Connect(function()
 
--- TITLE
+	enabled = not enabled
 
-local Title = Instance.new("TextLabel")
-Title.Parent = Main
-Title.Size = UDim2.new(1,0,0,40)
-Title.BackgroundTransparency = 1
-Title.Text = "🌊 MIU HUB WAVE"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 22
-Title.TextColor3 = Color3.new(1,1,1)
+	if enabled then
+		btn.Text = "WAVE FREEZE : ON"
+		btn.BackgroundColor3 = Color3.fromRGB(255,105,180)
+	else
+		btn.Text = "WAVE FREEZE : OFF"
+		btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+	end
+end)
 
--- STATUS
+-- FORCE FREEZE LOOP
+RunService.RenderStepped:Connect(function()
 
-local Status = Instance.new("TextLabel")
-Status.Parent = Main
-Status.Size = UDim2.new(1,-20,0,30)
-Status.Position = UDim2.new(0,10,0,45)
-Status.BackgroundTransparency = 1
-Status.Text = "Wave Status : NORMAL"
-Status.Font = Enum.Font.GothamBold
-Status.TextSize = 16
-Status.TextColor3 = Color3.fromRGB(0,255,100)
+	if not enabled then
+		return
+	end
 
--- TOGGLE BUTTON
+	for _,v in pairs(Workspace:GetDescendants()) do
 
-local Toggle = Instance.new("TextButton")
-Toggle.Parent = Main
-Toggle.Size = UDim2.new(0.8,0,0,45)
-Toggle.Position = UDim2.new(0.1,0,0.48,0)
-Toggle.BackgroundColor3 = Color3.fromRGB(255,130,200)
-Toggle.Text = "FREEZE : OFF"
-Toggle.Font = Enum.Font.GothamBold
-Toggle.TextSize = 20
-Toggle.TextColor3 = Color3.new(1,1,1)
+		if v:IsA("BasePart") then
 
-Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,14)
-
--- INFO
-
-local Info = Instance.new("TextLabel")
-Info.Parent = Main
-Info.Size = UDim2.new(1,-20,0,35)
-Info.Position = UDim2.new(0,10,0,135)
-Info.BackgroundTransparency = 1
-Info.Text = "Press F to toggle wave freeze"
-Info.Font = Enum.Font.Gotham
-Info.TextSize = 13
-Info.TextColor3 = Color3.fromRGB(255,255,255)
-
--- MINI BUTTON
-
-local Mini = Instance.new("TextButton")
-Mini.Parent = Main
-Mini.Size = UDim2.new(0,28,0,28)
-Mini.Position = UDim2.new(1,-35,0,5)
-Mini.BackgroundColor3 = Color3.fromRGB(255,130,200)
-Mini.Text = "-"
-Mini.Font = Enum.Font.GothamBold
-Mini.TextSize = 22
-Mini.TextColor3 = Color3.new(1,1,1)
-
-Instance.new("UICorner", Mini).CornerRadius = UDim.new(1,0)
-
--- RESTORE
-
-local Restore = Instance.new("TextButton")
-Restore.Parent = ScreenGui
-Restore.Size = UDim2.new(0,55,0,55)
-Restore.Position = UDim2.new(0.02,0,0.4,0)
-Restore.BackgroundColor3 = Color3.fromRGB(255,105,180)
-Restore.Text = "🌊"
-Restore.TextSize = 24
-Restore.Visible = false
-Restore.Active = true
-Restore.Draggable = true
-
-Instance.new("UICorner", Restore).CornerRadius = UDim.new(1,0)
-
--- =========================
--- FREEZE SYSTEM
--- =========================
-
-local function FreezeWave()
-
-	waveFrozen = true
-
-	Status.Text = "Wave Status : FROZEN"
-	Status.TextColor3 = Color3.fromRGB(0,255,255)
-
-	Toggle.Text = "FREEZE : ON"
-	Toggle.BackgroundColor3 = Color3.fromRGB(255,80,170)
-
-	frozenParts = {}
-
-	for _, obj in pairs(Workspace:GetDescendants()) do
-
-		if obj:IsA("BasePart") then
-
-			local n = obj.Name:lower()
+			local n = v.Name:lower()
 
 			if string.find(n,"wave")
-			or string.find(n,"tsunami")
 			or string.find(n,"water")
+			or string.find(n,"tsunami")
 			or string.find(n,"ocean")
 			or string.find(n,"sea") then
 
-				frozenParts[obj] = {
-					Anchored = obj.Anchored,
-					Velocity = obj.AssemblyLinearVelocity,
-					RotVelocity = obj.AssemblyAngularVelocity
-				}
+				-- HARD FREEZE
+				v.Anchored = true
+				v.CanCollide = false
 
-				obj.Anchored = true
-				obj.AssemblyLinearVelocity = Vector3.zero
-				obj.AssemblyAngularVelocity = Vector3.zero
+				v.AssemblyLinearVelocity = Vector3.zero
+				v.AssemblyAngularVelocity = Vector3.zero
+
+				v.Velocity = Vector3.zero
+				v.RotVelocity = Vector3.zero
+
+				-- chống tween
+				v.CFrame = v.CFrame
 			end
 		end
 
-		-- Disable scripts tạo sóng
-		if obj:IsA("Script") or obj:IsA("LocalScript") then
+		-- Disable wave scripts
+		if v:IsA("Script") or v:IsA("LocalScript") then
 
-			local n = obj.Name:lower()
+			local n = v.Name:lower()
 
 			if string.find(n,"wave")
-			or string.find(n,"tsunami")
-			or string.find(n,"water") then
+			or string.find(n,"water")
+			or string.find(n,"tsunami") then
 
-				obj.Disabled = true
+				v.Disabled = true
 			end
 		end
 	end
-end
-
-local function UnfreezeWave()
-
-	waveFrozen = false
-
-	Status.Text = "Wave Status : NORMAL"
-	Status.TextColor3 = Color3.fromRGB(0,255,100)
-
-	Toggle.Text = "FREEZE : OFF"
-	Toggle.BackgroundColor3 = Color3.fromRGB(255,130,200)
-
-	for obj, data in pairs(frozenParts) do
-
-		if obj and obj.Parent then
-
-			obj.Anchored = data.Anchored
-			obj.AssemblyLinearVelocity = data.Velocity
-			obj.AssemblyAngularVelocity = data.RotVelocity
-		end
-	end
-
-	frozenParts = {}
-
-	-- Enable scripts lại
-	for _, obj in pairs(Workspace:GetDescendants()) do
-
-		if obj:IsA("Script") or obj:IsA("LocalScript") then
-
-			local n = obj.Name:lower()
-
-			if string.find(n,"wave")
-			or string.find(n,"tsunami")
-			or string.find(n,"water") then
-
-				obj.Disabled = false
-			end
-		end
-	end
-end
-
--- =========================
--- BUTTON EVENTS
--- =========================
-
-Toggle.MouseButton1Click:Connect(function()
-
-	if waveFrozen then
-		UnfreezeWave()
-	else
-		FreezeWave()
-	end
 end)
 
--- KEYBOARD TOGGLE
-
-UserInputService.InputBegan:Connect(function(input,gp)
-
-	if gp then return end
-
-	if input.KeyCode == Enum.KeyCode.F then
-
-		if waveFrozen then
-			UnfreezeWave()
-		else
-			FreezeWave()
-		end
-	end
-end)
-
--- MINIMIZE
-
-Mini.MouseButton1Click:Connect(function()
-	Main.Visible = false
-	Restore.Visible = true
-end)
-
-Restore.MouseButton1Click:Connect(function()
-	Main.Visible = true
-	Restore.Visible = false
-end)
-
-print("MIU HUB Wave Loaded")
+print("MIU HUB Real Freeze Loaded")
