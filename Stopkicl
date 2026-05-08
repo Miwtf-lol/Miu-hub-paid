@@ -1,223 +1,172 @@
--- Kick a Lucky Block - Wave Freeze Toggle (GUI)
--- Nhấn nút "STOP WAVE" để đóng băng sóng, nhấn lại để sóng chạy bình thường
+-- Kick a Lucky Block - Auto Freeze Wave by Rarity (GUI)
+-- Tự động freeze sóng khi kick ra brainrot có độ hiếm đã chọn
+-- Click nút để bật/tắt, nhấn F để toggle nhanh
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
+local rootPart = player.Character and player.Character:WaitForChild("HumanoidRootPart") or player.CharacterAdded:Wait():WaitForChild("HumanoidRootPart")
 
 -- ===== CẤU HÌNH =====
-local safeZone = Vector3.new(0, 5, 0)  -- Safe zone (base)
-local godSpeed = 200                    -- Speed khi freeze
-local normalSpeed = 16                  -- Speed bình thường
-
--- ===== TRẠNG THÁI =====
+local safeZone = Vector3.new(0, 5, 0) -- Tọa độ base, tự detect nếu cần
 local waveFrozen = false
-local waveObjects = {}  -- Lưu danh sách wave parts khi freeze
+local autoDetect = true
+local currentRarity = ""     -- Rarity vừa detect
+local currentBrainrot = nil  -- Brainrot object
+local waveObjects = {}
+local lastRarityTime = 0
+
+-- Danh sách rarity theo thứ tự từ thấp đến cao
+local RARITY_ORDER = {
+    ["Common"] = 1,
+    ["Rare"] = 2,
+    ["Epic"] = 3,
+    ["Legend"] = 4,
+    ["Legendary"] = 4,
+    ["Mythic"] = 5,
+    ["Godly"] = 6,
+    ["Secret"] = 7,
+    ["Divine"] = 8,
+    ["Hacked"] = 9,
+    ["OG"] = 10,
+    ["Celestial"] = 11,
+}
+
+-- Rarity mặc định được chọn: từ "Legend" trở lên
+local MIN_RARITY = "Rare"  -- Sửa dòng này để đổi ngưỡng tối thiểu
+local MIN_RARITY_LEVEL = RARITY_ORDER[MIN_RARITY] or 2
 
 -- ===== TẠO GUI =====
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "WaveToggleGui"
+screenGui.Name = "RarityWaveGui"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = player.PlayerGui
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Frame chính
+-- Main frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 200, 0, 60)
-frame.Position = UDim2.new(0.5, -100, 0.9, -30)
-frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-frame.BackgroundTransparency = 0.2
+frame.Size = UDim2.new(0, 260, 0, 250)
+frame.Position = UDim2.new(0.02, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+frame.BackgroundTransparency = 0.1
 frame.BorderSizePixel = 0
 frame.Active = true
-frame.Draggable = true  -- Kéo di chuyển
+frame.Draggable = true
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = frame
 frame.Parent = screenGui
 
--- Gradient bo góc
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 10)
-uiCorner.Parent = frame
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 32)
+title.BackgroundTransparency = 1
+title.Text = "🎯 WAVE FREEZE BY RARITY"
+title.TextColor3 = Color3.fromRGB(200, 200, 255)
+title.TextSize = 14
+title.Font = Enum.Font.GothamBold
+title.Parent = frame
 
--- Label trạng thái
+-- Divider
+local div = Instance.new("Frame")
+div.Size = UDim2.new(1, -20, 0, 1)
+div.Position = UDim2.new(0, 10, 0, 35)
+div.BackgroundColor3 = Color3.fromRGB(100, 100, 150)
+div.BackgroundTransparency = 0.5
+div.BorderSizePixel = 0
+div.Parent = frame
+
+-- Status label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 0, 25)
-statusLabel.Position = UDim2.new(0, 0, 0, 2)
+statusLabel.Size = UDim2.new(1, -20, 0, 22)
+statusLabel.Position = UDim2.new(0, 10, 0, 40)
 statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "🌊 Wave: RUNNING"
+statusLabel.Text = "🌊 Wave: NORMAL"
 statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-statusLabel.TextSize = 16
-statusLabel.Font = Enum.Font.GothamBold
-statusLabel.TextStrokeTransparency = 0.3
+statusLabel.TextSize = 13
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = frame
 
--- Nút toggle
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(1, -20, 0, 28)
-toggleBtn.Position = UDim2.new(0, 10, 0, 28)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-toggleBtn.Text = "⏸ FREEZE WAVE"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleBtn.TextSize = 14
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.AutoButtonColor = false
-toggleBtn.BorderSizePixel = 0
+-- Current rarity label
+local rarityLabel = Instance.new("TextLabel")
+rarityLabel.Size = UDim2.new(1, -20, 0, 22)
+rarityLabel.Position = UDim2.new(0, 10, 0, 62)
+rarityLabel.BackgroundTransparency = 1
+rarityLabel.Text = "🎲 Rarity: ---"
+rarityLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+rarityLabel.TextSize = 13
+rarityLabel.Font = Enum.Font.Gotham
+rarityLabel.TextXAlignment = Enum.TextXAlignment.Left
+rarityLabel.Parent = frame
 
-local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 6)
-btnCorner.Parent = toggleBtn
+-- Min rarity picker label
+local pickerLabel = Instance.new("TextLabel")
+pickerLabel.Size = UDim2.new(1, -20, 0, 22)
+pickerLabel.Position = UDim2.new(0, 10, 0, 90)
+pickerLabel.BackgroundTransparency = 1
+pickerLabel.Text = "⬇ Freeze khi ≥:"
+pickerLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
+pickerLabel.TextSize = 13
+pickerLabel.Font = Enum.Font.Gotham
+pickerLabel.TextXAlignment = Enum.TextXAlignment.Left
+pickerLabel.Parent = frame
 
-toggleBtn.Parent = frame
+-- Dropdown button (hiển thị rarity hiện tại)
+local rarityList = {"Common","Rare","Epic","Legend","Mythic","Godly","Secret","Divine","Hacked","OG","Celestial"}
+local currentSelection = 2  -- Default: Rare
 
--- ===== CHỨC NĂNG CHÍNH =====
-
--- Phát hiện và lưu wave objects
-local function findWaveObjects()
-    waveObjects = {}
-    for _, obj in pairs(Workspace:GetChildren()) do
-        local nameLower = obj.Name:lower()
-        -- Adjust detection dựa trên game (thêm/remove patterns nếu cần)
-        if nameLower:find("wave") or nameLower:find("tsunami") or nameLower:find("tidal") or nameLower:find("water") then
-            if obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("Model") then
-                table.insert(waveObjects, obj)
-            end
-        end
-        -- Cũng kiểm tra children của Workspace thường chứa các part lớn
-        if obj:IsA("BasePart") and obj.Size.X > 30 and obj.Size.Z > 30 then
-            table.insert(waveObjects, obj)
-        end
-    end
-    return #waveObjects > 0
+local function getRarityColor(r)
+    local colors = {
+        Common = Color3.fromRGB(180, 180, 180),
+        Rare = Color3.fromRGB(50, 150, 255),
+        Epic = Color3.fromRGB(150, 50, 255),
+        Legend = Color3.fromRGB(255, 150, 0),
+        Legendary = Color3.fromRGB(255, 150, 0),
+        Mythic = Color3.fromRGB(255, 50, 50),
+        Godly = Color3.fromRGB(255, 215, 0),
+        Secret = Color3.fromRGB(0, 255, 200),
+        Divine = Color3.fromRGB(255, 100, 255),
+        Hacked = Color3.fromRGB(0, 255, 0),
+        OG = Color3.fromRGB(255, 0, 100),
+        Celestial = Color3.fromRGB(100, 200, 255),
+    }
+    return colors[r] or Color3.fromRGB(255, 255, 255)
 end
 
--- Freeze wave: ẩn hết wave objects
-local function freezeWave()
-    if waveFrozen then return end
-    
-    findWaveObjects()
-    if #waveObjects == 0 then
-        -- Nếu ko detect được, thử ẩn theo pattern
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj:IsA("BasePart") then
-                obj.Transparency = 1
-                obj.CanCollide = false
-                obj.Anchored = true
-                table.insert(waveObjects, obj)
-            end
-        end
-    end
-    
-    for _, obj in pairs(waveObjects) do
-        if obj and obj.Parent then
-            obj.Transparency = 1
-            obj.CanCollide = false
-            obj.Anchored = true
-            if obj:IsA("Model") then
-                for _, part in pairs(obj:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.Transparency = 1
-                        part.CanCollide = false
-                        part.Anchored = true
-                    end
-                end
-            end
-        end
-    end
-    
-    waveFrozen = true
-    humanoid.WalkSpeed = normalSpeed
-    statusLabel.Text = "❄️ Wave: FROZEN"
-    statusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
-    toggleBtn.Text = "▶️ RESUME WAVE"
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 120)
-    print("[Wave] Freezed " .. #waveObjects .. " wave objects")
-end
+local pickerBtn = Instance.new("TextButton")
+pickerBtn.Size = UDim2.new(1, -20, 0, 28)
+pickerBtn.Position = UDim2.new(0, 10, 0, 112)
+pickerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+pickerBtn.Text = "➤ " .. rarityList[currentSelection]
+pickerBtn.TextColor3 = getRarityColor(rarityList[currentSelection])
+pickerBtn.TextSize = 14
+pickerBtn.Font = Enum.Font.GothamBold
+pickerBtn.BorderSizePixel = 0
+pickerBtn.AutoButtonColor = false
 
--- Resume wave: hiện lại wave objects
-local function resumeWave()
-    if not waveFrozen then return end
-    
-    for _, obj in pairs(waveObjects) do
-        if obj and obj.Parent then
-            obj.Transparency = 0
-            obj.CanCollide = true
-            obj.Anchored = false
-            if obj:IsA("Model") then
-                for _, part in pairs(obj:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.Transparency = 0
-                        part.CanCollide = true
-                        part.Anchored = false
-                    end
-                end
-            end
-        end
-    end
-    
-    waveObjects = {}
-    waveFrozen = false
-    humanoid.WalkSpeed = godSpeed
-    statusLabel.Text = "🌊 Wave: RUNNING"
-    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-    toggleBtn.Text = "⏸ FREEZE WAVE"
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    print("[Wave] Resumed - wave is active again")
-end
+local pickerCorner = Instance.new("UICorner")
+pickerCorner.CornerRadius = UDim.new(0, 6)
+pickerCorner.Parent = pickerBtn
+pickerBtn.Parent = frame
 
--- Toggle chính
-local function toggleWave()
-    if waveFrozen then
-        resumeWave()
-    else
-        freezeWave()
-    end
-end
+-- Dropdown frame (ẩn/hiện khi click)
+local dropdown = Instance.new("Frame")
+dropdown.Size = UDim2.new(1, -20, 0, 242)  -- 11 items * 22px
+dropdown.Position = UDim2.new(0, 10, 0, 142)
+dropdown.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+dropdown.BorderSizePixel = 0
+dropdown.Visible = false
+dropdown.ZIndex = 10
 
--- Nút bấm
-toggleBtn.MouseButton1Click:Connect(toggleWave)
+local dropCorner = Instance.new("UICorner")
+dropCorner.CornerRadius = UDim.new(0, 6)
+dropCorner.Parent = dropdown
+dropdown.Parent = frame
 
--- Hotkey: Press "F" để toggle
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.F then
-        toggleWave()
-    end
-end)
-
--- Tự động tái phát hiện wave khi Workspace thay đổi (sóng mới xuất hiện)
-Workspace.ChildAdded:Connect(function(child)
-    if waveFrozen then
-        -- Nếu đang freeze, ẩn luôn object mới
-        task.wait(0.5)
-        local nameLower = child.Name:lower()
-        if nameLower:find("wave") or nameLower:find("tsunami") or child:IsA("BasePart") then
-            child.Transparency = 1
-            child.CanCollide = false
-            child.Anchored = true
-            table.insert(waveObjects, child)
-            print("[Wave] New wave object hidden immediately")
-        end
-    end
-end)
-
--- Chạy speed cao mặc định
-humanoid.WalkSpeed = godSpeed
-
-print("=== Wave Toggle Script Loaded ===")
-print("Click GUI button or press [F] to toggle wave on/off!")
-print("Status: Wave RUNNING (default)")
-
--- Đổi màu nút khi hover
-toggleBtn.MouseEnter:Connect(function()
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 100)
-end)
-toggleBtn.MouseLeave:Connect(function()
-    if waveFrozen then
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 60, 120)
-    else
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    end
-end)
+-- Tạo các item trong dropdown
+local function createRarityItem(r, idx
