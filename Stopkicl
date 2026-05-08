@@ -1,211 +1,251 @@
---// MIU HUB - WAVE FREEZE BY RARITY
+--// MIU HUB - Freeze Wave System
+--// Kick A Lucky Block
+--// Full GUI + Freeze/Unfreeze Wave
 
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
 local player = Players.LocalPlayer
 
-------------------------------------------------
+-- =========================
+-- SETTINGS
+-- =========================
+
+local waveFrozen = false
+local frozenParts = {}
+
+-- =========================
 -- GUI
-------------------------------------------------
+-- =========================
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "MIU_WAVE"
-gui.ResetOnSpawn = false
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MIU_WAVE_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
-pcall(function()
-	gui.Parent = game.CoreGui
-end)
+local Main = Instance.new("Frame")
+Main.Parent = ScreenGui
+Main.Size = UDim2.new(0,260,0,180)
+Main.Position = UDim2.new(0.03,0,0.35,0)
+Main.BackgroundColor3 = Color3.fromRGB(255,105,180)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
 
-if not gui.Parent then
-	gui.Parent = player:WaitForChild("PlayerGui")
-end
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,16)
 
-local frame = Instance.new("Frame")
-frame.Parent = gui
-frame.Size = UDim2.new(0,260,0,320)
-frame.Position = UDim2.new(0.03,0,0.3,0)
-frame.BackgroundColor3 = Color3.fromRGB(20,20,30)
-frame.Active = true
-frame.Draggable = true
-
-Instance.new("UICorner",frame).CornerRadius = UDim.new(0,12)
-
-------------------------------------------------
 -- TITLE
-------------------------------------------------
 
-local title = Instance.new("TextLabel")
-title.Parent = frame
-title.Size = UDim2.new(1,0,0,35)
-title.BackgroundTransparency = 1
-title.Text = "🌊 MIU WAVE FREEZE"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 18
-title.TextColor3 = Color3.new(1,1,1)
+local Title = Instance.new("TextLabel")
+Title.Parent = Main
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "🌊 MIU HUB WAVE"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 22
+Title.TextColor3 = Color3.new(1,1,1)
 
-------------------------------------------------
 -- STATUS
-------------------------------------------------
 
-local status = Instance.new("TextLabel")
-status.Parent = frame
-status.Size = UDim2.new(1,-20,0,25)
-status.Position = UDim2.new(0,10,0,40)
-status.BackgroundTransparency = 1
-status.Text = "STATUS : OFF"
-status.Font = Enum.Font.Gotham
-status.TextSize = 14
-status.TextColor3 = Color3.fromRGB(255,100,100)
-status.TextXAlignment = Enum.TextXAlignment.Left
+local Status = Instance.new("TextLabel")
+Status.Parent = Main
+Status.Size = UDim2.new(1,-20,0,30)
+Status.Position = UDim2.new(0,10,0,45)
+Status.BackgroundTransparency = 1
+Status.Text = "Wave Status : NORMAL"
+Status.Font = Enum.Font.GothamBold
+Status.TextSize = 16
+Status.TextColor3 = Color3.fromRGB(0,255,100)
 
-------------------------------------------------
--- CURRENT RARITY
-------------------------------------------------
-
-local rarityLabel = Instance.new("TextLabel")
-rarityLabel.Parent = frame
-rarityLabel.Size = UDim2.new(1,-20,0,25)
-rarityLabel.Position = UDim2.new(0,10,0,65)
-rarityLabel.BackgroundTransparency = 1
-rarityLabel.Text = "RARITY : Rare"
-rarityLabel.Font = Enum.Font.Gotham
-rarityLabel.TextSize = 14
-rarityLabel.TextColor3 = Color3.fromRGB(255,200,100)
-rarityLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-------------------------------------------------
--- RARITY LIST
-------------------------------------------------
-
-local rarityList = {
-	"Common",
-	"Rare",
-	"Epic",
-	"Legend",
-	"Mythic",
-	"Godly",
-	"Secret",
-	"Divine",
-	"Hacked",
-	"OG",
-	"Celestial"
-}
-
-local currentSelection = 2
-
-local function getRarityColor(r)
-	local colors = {
-		Common = Color3.fromRGB(180,180,180),
-		Rare = Color3.fromRGB(50,150,255),
-		Epic = Color3.fromRGB(180,50,255),
-		Legend = Color3.fromRGB(255,170,0),
-		Mythic = Color3.fromRGB(255,60,60),
-		Godly = Color3.fromRGB(255,220,0),
-		Secret = Color3.fromRGB(0,255,200),
-		Divine = Color3.fromRGB(255,100,255),
-		Hacked = Color3.fromRGB(0,255,0),
-		OG = Color3.fromRGB(255,0,100),
-		Celestial = Color3.fromRGB(120,220,255)
-	}
-
-	return colors[r] or Color3.new(1,1,1)
-end
-
-------------------------------------------------
--- DROPDOWN BUTTON
-------------------------------------------------
-
-local picker = Instance.new("TextButton")
-picker.Parent = frame
-picker.Size = UDim2.new(1,-20,0,35)
-picker.Position = UDim2.new(0,10,0,100)
-picker.BackgroundColor3 = Color3.fromRGB(40,40,60)
-picker.Text = "SELECT : "..rarityList[currentSelection]
-picker.TextColor3 = getRarityColor(rarityList[currentSelection])
-picker.Font = Enum.Font.GothamBold
-picker.TextSize = 15
-
-Instance.new("UICorner",picker).CornerRadius = UDim.new(0,8)
-
-------------------------------------------------
--- DROPDOWN
-------------------------------------------------
-
-local dropdown = Instance.new("Frame")
-dropdown.Parent = frame
-dropdown.Size = UDim2.new(1,-20,0,160)
-dropdown.Position = UDim2.new(0,10,0,145)
-dropdown.BackgroundColor3 = Color3.fromRGB(30,30,40)
-dropdown.Visible = false
-
-Instance.new("UICorner",dropdown).CornerRadius = UDim.new(0,8)
-
-------------------------------------------------
--- CREATE ITEMS
-------------------------------------------------
-
-for i,v in ipairs(rarityList) do
-	local btn = Instance.new("TextButton")
-	btn.Parent = dropdown
-	btn.Size = UDim2.new(1,-10,0,22)
-	btn.Position = UDim2.new(0,5,0,(i-1)*23)
-	btn.BackgroundColor3 = Color3.fromRGB(45,45,60)
-	btn.Text = v
-	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 13
-	btn.TextColor3 = getRarityColor(v)
-
-	Instance.new("UICorner",btn).CornerRadius = UDim.new(0,6)
-
-	btn.MouseButton1Click:Connect(function()
-		currentSelection = i
-
-		picker.Text = "SELECT : "..v
-		picker.TextColor3 = getRarityColor(v)
-
-		rarityLabel.Text = "RARITY : "..v
-
-		dropdown.Visible = false
-	end)
-end
-
-------------------------------------------------
--- OPEN / CLOSE
-------------------------------------------------
-
-picker.MouseButton1Click:Connect(function()
-	dropdown.Visible = not dropdown.Visible
-end)
-
-------------------------------------------------
 -- TOGGLE BUTTON
-------------------------------------------------
 
-local enabled = false
+local Toggle = Instance.new("TextButton")
+Toggle.Parent = Main
+Toggle.Size = UDim2.new(0.8,0,0,45)
+Toggle.Position = UDim2.new(0.1,0,0.48,0)
+Toggle.BackgroundColor3 = Color3.fromRGB(255,130,200)
+Toggle.Text = "FREEZE : OFF"
+Toggle.Font = Enum.Font.GothamBold
+Toggle.TextSize = 20
+Toggle.TextColor3 = Color3.new(1,1,1)
 
-local toggle = Instance.new("TextButton")
-toggle.Parent = frame
-toggle.Size = UDim2.new(1,-20,0,40)
-toggle.Position = UDim2.new(0,10,1,-50)
-toggle.BackgroundColor3 = Color3.fromRGB(255,100,140)
-toggle.Text = "FREEZE : OFF"
-toggle.Font = Enum.Font.GothamBold
-toggle.TextSize = 18
-toggle.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,14)
 
-Instance.new("UICorner",toggle).CornerRadius = UDim.new(0,10)
+-- INFO
 
-toggle.MouseButton1Click:Connect(function()
-	enabled = not enabled
+local Info = Instance.new("TextLabel")
+Info.Parent = Main
+Info.Size = UDim2.new(1,-20,0,35)
+Info.Position = UDim2.new(0,10,0,135)
+Info.BackgroundTransparency = 1
+Info.Text = "Press F to toggle wave freeze"
+Info.Font = Enum.Font.Gotham
+Info.TextSize = 13
+Info.TextColor3 = Color3.fromRGB(255,255,255)
 
-	if enabled then
-		toggle.Text = "FREEZE : ON"
-		status.Text = "STATUS : ACTIVE"
-		status.TextColor3 = Color3.fromRGB(0,255,120)
+-- MINI BUTTON
+
+local Mini = Instance.new("TextButton")
+Mini.Parent = Main
+Mini.Size = UDim2.new(0,28,0,28)
+Mini.Position = UDim2.new(1,-35,0,5)
+Mini.BackgroundColor3 = Color3.fromRGB(255,130,200)
+Mini.Text = "-"
+Mini.Font = Enum.Font.GothamBold
+Mini.TextSize = 22
+Mini.TextColor3 = Color3.new(1,1,1)
+
+Instance.new("UICorner", Mini).CornerRadius = UDim.new(1,0)
+
+-- RESTORE
+
+local Restore = Instance.new("TextButton")
+Restore.Parent = ScreenGui
+Restore.Size = UDim2.new(0,55,0,55)
+Restore.Position = UDim2.new(0.02,0,0.4,0)
+Restore.BackgroundColor3 = Color3.fromRGB(255,105,180)
+Restore.Text = "🌊"
+Restore.TextSize = 24
+Restore.Visible = false
+Restore.Active = true
+Restore.Draggable = true
+
+Instance.new("UICorner", Restore).CornerRadius = UDim.new(1,0)
+
+-- =========================
+-- FREEZE SYSTEM
+-- =========================
+
+local function FreezeWave()
+
+	waveFrozen = true
+
+	Status.Text = "Wave Status : FROZEN"
+	Status.TextColor3 = Color3.fromRGB(0,255,255)
+
+	Toggle.Text = "FREEZE : ON"
+	Toggle.BackgroundColor3 = Color3.fromRGB(255,80,170)
+
+	frozenParts = {}
+
+	for _, obj in pairs(Workspace:GetDescendants()) do
+
+		if obj:IsA("BasePart") then
+
+			local n = obj.Name:lower()
+
+			if string.find(n,"wave")
+			or string.find(n,"tsunami")
+			or string.find(n,"water")
+			or string.find(n,"ocean")
+			or string.find(n,"sea") then
+
+				frozenParts[obj] = {
+					Anchored = obj.Anchored,
+					Velocity = obj.AssemblyLinearVelocity,
+					RotVelocity = obj.AssemblyAngularVelocity
+				}
+
+				obj.Anchored = true
+				obj.AssemblyLinearVelocity = Vector3.zero
+				obj.AssemblyAngularVelocity = Vector3.zero
+			end
+		end
+
+		-- Disable scripts tạo sóng
+		if obj:IsA("Script") or obj:IsA("LocalScript") then
+
+			local n = obj.Name:lower()
+
+			if string.find(n,"wave")
+			or string.find(n,"tsunami")
+			or string.find(n,"water") then
+
+				obj.Disabled = true
+			end
+		end
+	end
+end
+
+local function UnfreezeWave()
+
+	waveFrozen = false
+
+	Status.Text = "Wave Status : NORMAL"
+	Status.TextColor3 = Color3.fromRGB(0,255,100)
+
+	Toggle.Text = "FREEZE : OFF"
+	Toggle.BackgroundColor3 = Color3.fromRGB(255,130,200)
+
+	for obj, data in pairs(frozenParts) do
+
+		if obj and obj.Parent then
+
+			obj.Anchored = data.Anchored
+			obj.AssemblyLinearVelocity = data.Velocity
+			obj.AssemblyAngularVelocity = data.RotVelocity
+		end
+	end
+
+	frozenParts = {}
+
+	-- Enable scripts lại
+	for _, obj in pairs(Workspace:GetDescendants()) do
+
+		if obj:IsA("Script") or obj:IsA("LocalScript") then
+
+			local n = obj.Name:lower()
+
+			if string.find(n,"wave")
+			or string.find(n,"tsunami")
+			or string.find(n,"water") then
+
+				obj.Disabled = false
+			end
+		end
+	end
+end
+
+-- =========================
+-- BUTTON EVENTS
+-- =========================
+
+Toggle.MouseButton1Click:Connect(function()
+
+	if waveFrozen then
+		UnfreezeWave()
 	else
-		toggle.Text = "FREEZE : OFF"
-		status.Text = "STATUS : OFF"
-		status.TextColor3 = Color3.fromRGB(255,100,100)
+		FreezeWave()
 	end
 end)
 
-print("MIU WAVE GUI LOADED")
+-- KEYBOARD TOGGLE
+
+UserInputService.InputBegan:Connect(function(input,gp)
+
+	if gp then return end
+
+	if input.KeyCode == Enum.KeyCode.F then
+
+		if waveFrozen then
+			UnfreezeWave()
+		else
+			FreezeWave()
+		end
+	end
+end)
+
+-- MINIMIZE
+
+Mini.MouseButton1Click:Connect(function()
+	Main.Visible = false
+	Restore.Visible = true
+end)
+
+Restore.MouseButton1Click:Connect(function()
+	Main.Visible = true
+	Restore.Visible = false
+end)
+
+print("MIU HUB Wave Loaded")
