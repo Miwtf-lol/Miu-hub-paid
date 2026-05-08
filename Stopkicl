@@ -1,88 +1,55 @@
---// STOP TSUNAMI SYSTEM
---// Kick A Lucky Blox
-
-local TsunamiFolder = workspace:WaitForChild("Tsunami")
-
-local Frozen = false
-
--- Hàm đóng băng sóng thần
-local function FreezeTsunami()
-	for _,v in pairs(TsunamiFolder:GetDescendants()) do
-		if v:IsA("BasePart") then
-			v.Anchored = true
-			v.AssemblyLinearVelocity = Vector3.zero
-			v.AssemblyAngularVelocity = Vector3.zero
-		end
-	end
-end
-
--- Hàm mở lại sóng thần
-local function UnfreezeTsunami()
-	for _,v in pairs(TsunamiFolder:GetDescendants()) do
-		if v:IsA("BasePart") then
-			v.Anchored = false
-		end
-	end
-end
-
-------------------------------------------------
--- GUI
-------------------------------------------------
+--// MIU HUB TEST GUI
 
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = Player.PlayerGui
-ScreenGui.Name = "MIU_TSUNAMI"
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "MIU_TEST"
+Gui.ResetOnSpawn = false
+
+pcall(function()
+	Gui.Parent = game.CoreGui
+end)
+
+if not Gui.Parent then
+	Gui.Parent = Player:WaitForChild("PlayerGui")
+end
+
+------------------------------------------------
 
 local Main = Instance.new("Frame")
-Main.Parent = ScreenGui
+Main.Parent = Gui
 Main.Size = UDim2.new(0,220,0,110)
 Main.Position = UDim2.new(0.05,0,0.4,0)
 Main.BackgroundColor3 = Color3.fromRGB(255,105,180)
 Main.Active = true
 Main.Draggable = true
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,18)
+Instance.new("UICorner",Main).CornerRadius = UDim.new(0,18)
 
 local Title = Instance.new("TextLabel")
 Title.Parent = Main
 Title.Size = UDim2.new(1,0,0,35)
 Title.BackgroundTransparency = 1
-Title.Text = "🌊 TSUNAMI CONTROL"
+Title.Text = "MIU HUB"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
+Title.TextSize = 24
 Title.TextColor3 = Color3.new(1,1,1)
 
-local Toggle = Instance.new("TextButton")
-Toggle.Parent = Main
-Toggle.Size = UDim2.new(0.8,0,0,45)
-Toggle.Position = UDim2.new(0.1,0,0.5,0)
-Toggle.BackgroundColor3 = Color3.fromRGB(255,130,200)
-Toggle.Text = "STOP TSUNAMI : OFF"
-Toggle.Font = Enum.Font.GothamBold
-Toggle.TextSize = 18
-Toggle.TextColor3 = Color3.new(1,1,1)
+local Button = Instance.new("TextButton")
+Button.Parent = Main
+Button.Size = UDim2.new(0.8,0,0,45)
+Button.Position = UDim2.new(0.1,0,0.5,0)
+Button.BackgroundColor3 = Color3.fromRGB(255,130,200)
+Button.Text = "TEST BUTTON"
+Button.TextColor3 = Color3.new(1,1,1)
+Button.Font = Enum.Font.GothamBold
+Button.TextSize = 20
 
-Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,14)
+Instance.new("UICorner",Button).CornerRadius = UDim.new(0,14)
 
-------------------------------------------------
--- TOGGLE
-------------------------------------------------
-
-Toggle.MouseButton1Click:Connect(function()
-	Frozen = not Frozen
-
-	if Frozen then
-		FreezeTsunami()
-
-		Toggle.Text = "STOP TSUNAMI : ON"
-		Toggle.BackgroundColor3 = Color3.fromRGB(255,70,150)
-	else
-		UnfreezeTsunami()
-
-		Toggle.Text = "STOP TSUNAMI : OFF"
-		Toggle.BackgroundColor3 = Color3.fromRGB(255,130,200)
-	end
+Button.MouseButton1Click:Connect(function()
+	Button.Text = "WORKING!"
 end)
+
+print("MIU HUB GUI LOADED")
