@@ -684,7 +684,7 @@ function Library:create_ui(config: table)
     MinimizeIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
     MinimizeIcon.Size = UDim2.new(1, -2, 1, -2)
     MinimizeIcon.ScaleType = Enum.ScaleType.Fit
-    MinimizeIcon.Image = 'rbxassetid://119956125481982'
+    MinimizeIcon.Image = 'rbxassetid://123456789'
     MinimizeIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
     MinimizeIcon.BorderSizePixel = 0
     MinimizeIcon.Parent = Minimize
